@@ -25,38 +25,41 @@ def seed():
     shops = [
         # (name, address, zip, neighborhood, phone, website, ownership, notes)
         # ZIP 28216 — Beatties Ford / Northlake
-        ("Goodfellas Barbershop", "4005-B Sunset Road, Charlotte, NC 28216", "28216", "Beatties Ford", "(704) 399-3299", "https://goodfellasbarbershop.us/", "Black-owned", "4.5 stars, 302 reviews. Booking via Square."),
+        ("Goodfellas Barbershop", "4005-B Sunset Road, Charlotte, NC 28216", "28216", "Beatties Ford", "(704) 399-3299", "https://goodfellasbarbershop.us/", "Black-owned", "Est 2007. Owner: Garinger HS grad, master barber since 2000, trained at Hair Styling Institute of Charlotte (1999). 8 barbers. 4.5 stars, 302 reviews. Booking via Square + Booksy. Complimentary warm towels."),
         ("Anderton Barber & Stylists", "2119 Beatties Ford Rd B, Charlotte, NC 28216", "28216", "Beatties Ford", None, None, "Black-owned", "Barbers Rodney and Derrick. Fresha booking."),
         ("B & J Barber Stylist", "2200 Beatties Ford Rd, Charlotte, NC 28216", "28216", "Beatties Ford", "(704) 394-3303", None, "Black-owned", "Beatties Ford corridor."),
         ("Edwards' Barber Shop", "3201 Beatties Ford Rd, Ste D, Charlotte, NC 28216", "28216", "Beatties Ford", "(704) 392-6906", None, "Black-owned", "Owner Nathaniel Edwards. Cash only."),
         ("M & M Barber Studio", "4425 Brookshire Blvd, Charlotte, NC 28216", "28216", "Brookshire", "(704) 526-6249", None, "Black-owned", "Men's haircuts, head shaves, beard trims."),
-        ("No Grease - Mosaic Village", "1635 W Trade St, Ste 1E, Charlotte, NC 28216", "28216", "Mosaic Village", "(704) 333-6311", "https://nogrease.com/", "Black-owned", "Damian & Jermaine Johnson. First Black-owned franchise barbershop in US. ~$40 standard, ~$75 full."),
-        ("No Grease - Northlake", "6801 Northlake Mall Drive, Charlotte, NC 28216", "28216", "Northlake", "(704) 247-5508", "https://nogreasenorthlake.com/", "Black-owned", "Same franchise."),
+        ("No Grease - Mosaic Village", "1635 W Trade St, Ste 1E, Charlotte, NC 28216", "28216", "Mosaic Village", "(704) 333-6311", "https://nogrease.com/", "Black-owned", "FLAGSHIP. Founded June 1997 by twins Damian & Jermaine Johnson (Buffalo NY, JCSU grads) + Charlie Petty. First Black-owned franchise barbershop in US (2017). 14 locations in 4+ states. Franchise fee $132K-$278K. Multi-million dollar business. Licensed in 36 states. Mon-Fri 9am-7pm, Sat 7:30am-5pm."),
+        ("No Grease - Northlake", "6801 Northlake Mall Drive, Charlotte, NC 28216", "28216", "Northlake", "(704) 247-5508", "https://nogreasenorthlake.com/", "Black-owned", "Franchisee: Ed Washington (Gardner-Webb grad, Microsoft exec). Gives lead barbers 10% equity. Invested ~$180K."),
         # ZIP 28208 — West Charlotte
-        ("The Man Cave Barbershop Charlotte", "926 Westmere Ave, Charlotte, NC 28208", "28208", "West Charlotte", "(704) 333-2283", None, "Black-owned", "4.6 stars, 153 reviews. Walk-ins. Booksy."),
+        ("The Man Cave Barbershop Charlotte", "926 Westmere Ave, Charlotte, NC 28208", "28208", "West Charlotte", "(704) 333-2283", None, "Black-owned", "12+ years in business. 4.6 stars, 153 reviews. Walk-ins welcome. Booksy. 2nd location at 516 W 10th St, Uptown. Mon 12-7, Tue-Thu 9-7, Fri 7-7, Sat 7-4. Serves men and women."),
         ("Ideal Barber Shop", "1520 West Blvd, Ste G, Charlotte, NC 28208", "28208", "West Blvd", "(704) 372-3037", None, "Black-owned", "Family oriented. Fair prices."),
         ("Victory Cutz Barber Lounge CLT", "3110 West Blvd, Charlotte, NC 28208", "28208", "West Blvd", "(704) 449-0997", None, "Black-owned", "5.0 stars, 29 reviews on Squire."),
-        ("Da Lucky Spot Barbershop", "3240 Wilkinson Blvd #3, Charlotte, NC 28208", "28208", "Wilkinson Blvd", "(704) 333-7325", "https://www.luckyspotbarbershop.com/", "Black-owned", "Owner Shaun 'Lucky' Corbett. Walmart partnership 2020. Academy Dec 2023."),
+        ("Da Lucky Spot Barbershop", "3240 Wilkinson Blvd #3, Charlotte, NC 28208", "28208", "Wilkinson Blvd", "(704) 333-7325", "https://www.luckyspotbarbershop.com/", "Black-owned", "Owner Shaun 'Lucky' Corbett. First Black-owned barbershop inside Walmart (Sep 26, 2019, $25K Walmart check). 5 Walmart locations across NC/SC/GA. Ex-felon turned entrepreneur. No Grease school grad 2005. Academy Dec 2023. Cops & Barbers 501(c)(3) cofounder with Det. Garry McFadden."),
         # ZIP 28206 — North Charlotte / N Tryon
-        ("Gillespie Barber & Stylist", "2601 N Tryon St, Ste C, Charlotte, NC 28206", "28206", "North Charlotte", "(704) 342-9919", None, "Black-owned", "Owner Richard Gillespie. 6 employees. Community institution."),
+        ("Gillespie Barber & Stylist", "2601 N Tryon St, Ste C, Charlotte, NC 28206", "28206", "North Charlotte", "(704) 342-9919", None, "Black-owned", "Owner Richard Gillespie. 6 employees. BBB since 2007. Community institution."),
         ("Head Quarters Barbershop", "3631 Statesville Ave, Charlotte, NC 28206", "28206", "Statesville Ave", "(704) 606-3637", None, "Black-owned", "Fresha booking."),
         ("Clipper Kingz Barbershop", "4108 North Tryon St, Suite E, Charlotte, NC 28206", "28206", "North Tryon", None, None, "Black-owned", "5.0 stars on Booksy."),
         ("Swag Barber Shop", "3720 N Tryon St, Charlotte, NC 28206", "28206", "North Tryon", "(516) 497-6805", None, "Black-owned", "Mon-Wed 9-6, Thu 9-7, Fri 9-8."),
-        ("Da Lucky Spot - N Tryon", "3720 N Tryon St, Charlotte, NC 28206", "28206", "North Tryon", "(704) 333-7325", "https://www.luckyspotbarbershop.com/", "Black-owned", "Second location."),
+        ("Da Lucky Spot - N Tryon", "3720 N Tryon St, Charlotte, NC 28206", "28206", "North Tryon", "(704) 333-7325", "https://www.luckyspotbarbershop.com/", "Black-owned", "Original Lucky Spot location, opened 2010."),
         # ZIP 28215 — Eastway / Plaza
         ("Edward's Boyz Barber Shop", "6307 The Plaza, Charlotte, NC 28215", "28215", "Plaza-Eastway", None, None, "Black-owned", "Fresha listing."),
         # ZIP 28204 — Cherry
-        ("Gordon's Historic Barbershop", "601 Baldwin Ave, Charlotte, NC 28204", "28204", "Cherry", "(704) 358-4648", "http://www.gordonshistoricbarbershop.com/", "Black-owned", "EST. 1935. 5.0 stars, 478 reviews. Trained No Grease founders."),
+        ("Gordon's Historic Barbershop", "601 Baldwin Ave, Charlotte, NC 28204", "28204", "Cherry", "(704) 358-4648", "http://www.gordonshistoricbarbershop.com/", "Black-owned", "EST. 1935 (founded by Clemon Morris). Oldest barbershop in Charlotte. Owner Michael Gordon (33+ yrs). Historic Cherry neighborhood — building was dance hall, Girl Scout meeting place during segregation. Michael wears grandfather Mancel Gordon's WWII dog tags daily. Trained No Grease founders. 5.0 Booksy, 478 reviews. Tue-Sat 9am-6pm."),
         # ZIP 28202 — Uptown
-        ("No Grease - Uptown", "333 E. Trade St, Suite D, Charlotte, NC 28202", "28202", "Uptown", "(980) 355-0191", "https://nogrease.com/", "Black-owned", "Spectrum Center. ~$40 standard, ~$75 full."),
+        ("No Grease - Uptown", "333 E. Trade St, Suite D, Charlotte, NC 28202", "28202", "Uptown", "(980) 355-0191", "https://nogrease.com/", "Black-owned", "Knights of the Razor concept. Mon-Thu 9am-7pm, Fri 7:30am-7pm, Sat 7:30am-5pm. 'The Royal Treatment' — facials + skin shaves."),
         ("The CUT Barbershop", "121 W Trade St, Charlotte, NC 28202", "28202", "Uptown", "(704) 405-0800", "https://www.cutbarbershop.com/", "Black-owned", "Owner Jill Matthews, opened 2010. Beer on-site. From $30."),
+        # ZIP 28211 — SouthPark
+        ("No Grease - SouthPark (Knights of the Razor)", "4400 Sharon Rd, Ste L01A, Charlotte, NC 28211", "28211", "SouthPark", "(704) 777-3292", "https://nogrease.com/", "Black-owned", "Premium concept inside SouthPark Mall. 2021 lease controversy — terminated then reversed after public outcry. Mon-Thu 10am-8pm, Fri-Sat 10am-9pm, Sun 11am-7pm."),
         # ZIP 28203 — South End
         ("Hawk & Fade Barbershop", "1422 S Tryon St #150, Charlotte, NC 28203", "28203", "South End", "(704) 412-3100", "https://hawkfade.com/", "Black-owned", "4.9 Booksy, 289 reviews."),
         # ZIP 28212 — Independence Blvd
         ("Headlines Barbershop", "5309 E Independence Blvd, Charlotte, NC 28212", "28212", "Independence Blvd", "(704) 537-1510", "https://www.headlinesbarbershop.com/", "Black-owned", "Founded 2008. 9 barbers. People, Essence, NewsOne. 5.0 Booksy, 203 reviews."),
+        ("No Grease - Eastland", "5741 Central Ave, Charlotte, NC 28212", "28212", "Eastland", None, "https://nogrease.com/", "Black-owned", "Central Ave location."),
         # ZIP 28213 — University City / N Tryon
         ("Fade Factory Barbershop", "1920 Back Creek Dr, Suite A, Charlotte, NC 28213", "28213", "University City", "(704) 598-8080", None, "Black-owned", "4.6 stars, 243 reviews. I Am Black Business verified."),
-        ("Overton's Barber & Styling", "5430 North Tryon Rd, Suite #2, Charlotte, NC 28213", "28213", "Hidden Valley", "(704) 509-1240", "http://www.overtonsbarbershop.com/", "Black-owned", "Owner Tait Overton. 20 years. 5 employees."),
+        ("Overton's Barber & Styling", "5430 North Tryon Rd, Suite #2, Charlotte, NC 28213", "28213", "Hidden Valley", "(704) 509-1240", "http://www.overtonsbarbershop.com/", "Black-owned", "Owner Tait Overton. 20+ years master barber. Engineering graphics degree. 5 employees."),
         ("LNB Tapers Barbershop", "6324 N Tryon St, Ste 102, Charlotte, NC 28213", "28213", "North Tryon", "(704) 910-4722", None, "Black-owned", "Owner Yusef Spate. 5.0 stars."),
         ("Kutt Masters Barbershop", "10901 University City Blvd, Charlotte, NC 28213", "28213", "University City", "(704) 595-7800", "http://kuttmasters.com/", "Black-owned", "University City Blvd."),
         # ZIP 28214 — West Charlotte
@@ -68,14 +71,19 @@ def seed():
         ("King Hut Cuts Barbershop", "11130 South Tryon St, Suite 209, Charlotte, NC 28273", "28273", "South Tryon", "(704) 906-2570", None, "Black-owned", "Top Yelp Black-owned."),
         # ZIP 28204 — Dilworth
         ("Major Barbershop", "650 B E Stonewall St, Charlotte, NC 28204", "28204", "Dilworth", "(704) 778-1187", None, "Black-owned", "Salon Lofts. 28 Yelp reviews. Upscale: neck shave, scalp massage, steam towel, beer. Barbers: Niki, Victoria."),
-        # ZIP 28205 — Plaza Midwood
+        # ZIP 28205 — Plaza Midwood / Sharon Amity
         ("Charlotte Barber & Beard", "1200 The Plaza Rd, Ste. B, Charlotte, NC 28205", "28205", "Plaza Midwood", None, None, "Black-owned", "5.0 Squire, 92 reviews. Barbers: Terrance Josey, Marcus C., Sean Anderson."),
+        ("No Grease School of Tonsorial Arts", "3731 North Sharon Amity Rd, Charlotte, NC 28205", "28205", "Sharon Amity", "(980) 819-9481", "https://nogreasebarberschool.com/", "Black-owned", "Barber school. 3,000+ graduates. 4,200 sq ft. 12-18 month program, 1,528 clock hours. ~15 full-time students. $150K/yr scholarship goal. 'Who Wants to Be a Barber' annual competition. Opened Oct 2016. Tue-Fri 9am-5pm, Sat 9am-1pm."),
         # ZIP 28212 — Independence Blvd (additional)
         ("Diamond Image Cutz", "6721 East Independence Blvd, Charlotte, NC 28212", "28212", "Independence Blvd", None, None, "Black-owned", "Squire listing. Regular Cut $45. Barbers: Aleman, Steven."),
         # ZIP 28270 — Ballantyne
         ("All Cutz Matter Barbershop", "1810 Galleria Blvd, Suite 305, Charlotte, NC 28270", "28270", "Ballantyne", None, None, "Black-owned", "5.0 Booksy, 171 reviews. Solo operator Angie Thompson. $30-$85."),
         # ZIP 28078 — Cornelius
         ("Potts Barber Shop", "Cornelius, NC 28078", "28078", "Cornelius", None, None, "Black-owned", "Est. 1952. Oldest Black-owned business in Cornelius. Historic landmark."),
+        # ZIP 28027 — Concord (No Grease franchise)
+        ("No Grease - Concord Mills", "8111 Concord Mills Blvd, Ste 149, Concord, NC 28027", "28027", "Concord Mills", "(704) 688-5499", "https://nogrease.com/", "Black-owned", "Concord Mills Mall. Mon-Thu 11am-7pm, Fri-Sat 10am-8pm, Sun 12pm-6pm."),
+        # No Grease - Charlotte Premium Outlets
+        ("No Grease - Premium Outlets", "5512 New Fashion Way, Charlotte, NC 28278", "28278", "Steele Creek", "(980) 498-7058", "https://nogrease.com/", "Black-owned", "Franchisee Ed Washington. Charlotte Premium Outlets."),
     ]
 
     shop_ids = {}
@@ -175,6 +183,10 @@ def seed():
         ("Kingdom Cuts", "Facebook", 1500, 3.0),
         ("Victory Cutz Barber Lounge CLT", "Instagram", 1500, 3.5),
         ("Overton's Barber & Styling", "Instagram", 1200, 3.5),
+        # Bot 4 additions
+        ("No Grease - SouthPark (Knights of the Razor)", "Instagram", 24000, 4.5),
+        ("No Grease - SouthPark (Knights of the Razor)", "Facebook", 2187, 2.0),
+        ("No Grease School of Tonsorial Arts", "Instagram", 24000, 4.5),
     ]
 
     social_count = 0
@@ -248,6 +260,13 @@ def seed():
         ("LNB Tapers Barbershop", "Yusef Spate", "Owner, tapers, fades", "Owner. 5.0 stars. North Tryon.", None, None),
         # NY 2 QC
         ("NY 2 QC Kutz", "Owner (unnamed)", "NY-style cuts, fades", "Since 2016. University City. NY transplant style.", "@ny2qckutz", None),
+        # Bot 4 additions — franchise operators & key staff
+        ("No Grease - Northlake", "Ed Washington", "Franchisee, business operations", "Gardner-Webb grad. Microsoft technical exec. Invested ~$180K per location. Gives lead barbers 10% equity. Also runs Premium Outlets + upcoming Houston Galleria.", None, None),
+        ("No Grease - Mosaic Village", "Tre Trimz", "Fades, all styles", "Listed on Booksy at Mosaic location. Dedicated clientele.", None, None),
+        ("No Grease - Mosaic Village", "Charlie Petty", "Co-founder, visionary", "Co-founder alongside Damian & Jermaine Johnson. Visionary owner.", None, "20+ years"),
+        ("Gordon's Historic Barbershop", "Michael Gordon", "Owner, traditional cuts, mentorship", "Owner 33+ years. Wears grandfather Mancel Gordon's WWII dog tags daily. Mentored No Grease founders. Cherry neighborhood institution.", None, "33+ years"),
+        ("Goodfellas Barbershop", "Owner (Garinger HS)", "Owner, master barber, all services", "Garinger HS grad. Trained at Hair Styling Institute of Charlotte (graduated 1999). Master Barber since 2000. Won trophies at local hair shows.", None, "20+ years"),
+        ("Goodfellas Barbershop", "Co-barber (Savannah)", "Master barber, fades, designs", "Raised in Savannah GA. Cutting hair since age 13. Master Barber License 1996. Moved to Charlotte 2002. Hair show trophy winner.", None, "25+ years"),
     ]
 
     barber_count = 0
@@ -295,12 +314,41 @@ def seed():
 
     print(f"Loaded {review_count} reviews")
 
+    # ── STRATEGIC MOVES (from Bot 4 deep research) ─────────────────────
+    move_entries = [
+        # (shop_name, date, move_type, description, source, impact)
+        ("No Grease - Mosaic Village", "1997-06-01", "Launch", "No Grease founded by Damian & Jermaine Johnson in Charlotte, NC. Name comes from barbers disliking grease in clients' hair.", "Axios Charlotte", 5),
+        ("No Grease - Mosaic Village", "2016-10-01", "Expansion", "No Grease School of Tonsorial Arts opens at 3731 N Sharon Amity Rd. 1,528 clock hours, 12-18 month program.", "nogreasebarberschool.com", 4),
+        ("No Grease - Mosaic Village", "2017-01-01", "Franchise", "No Grease begins franchising — first Black-owned franchise barbershop in US. $132K-$278K investment. Licensed in 36 states.", "QCity Metro", 5),
+        ("No Grease - SouthPark (Knights of the Razor)", "2021-02-26", "Launch", "Knights of the Razor opens inside SouthPark Mall — premium concept with 'The Royal Treatment' service.", "Axios Charlotte", 4),
+        ("No Grease - SouthPark (Knights of the Razor)", "2021-03-03", "Controversy", "SouthPark Mall terminates No Grease lease early. Public outcry forces reversal. Mall allows Knights of the Razor to stay.", "WCNC / WFAE", 3),
+        ("No Grease - Northlake", "2021-10-14", "Franchise", "Ed Washington (Gardner-Webb grad, Microsoft exec) becomes franchisee. Invested ~$180K per location. Gives lead barbers 10% equity in business.", "Axios Charlotte", 4),
+        ("No Grease - Mosaic Village", "2022-01-01", "Expansion", "No Grease opens Arundel Mills Mall location in Maryland — first location outside the Carolinas.", "Simon Properties", 4),
+        ("Da Lucky Spot Barbershop", "2019-09-26", "Launch", "First Black-owned barbershop inside a Walmart opens at Wilkinson Blvd. Walmart presents $25K check.", "Atlanta Black Star / Walmart Corporate", 5),
+        ("Da Lucky Spot Barbershop", "2023-12-01", "Expansion", "Da Lucky Spot Academy opens. Now 5 Walmart locations across NC, SC, GA.", "Voyage South Carolina", 4),
+        ("Da Lucky Spot Barbershop", "2015-01-01", "Community", "Shaun Corbett cofounds Cops & Barbers 501(c)(3) with Det. Garry McFadden. Bridges police-community relations.", "WCNC", 3),
+        ("Goodfellas Barbershop", "2007-01-01", "Launch", "Goodfellas opens at 4005 Sunset Rd. Owner: Garinger HS grad, master barber since 2000.", "goodfellasbarbershop.us", 3),
+        ("The Man Cave Barbershop Charlotte", "2014-01-01", "Launch", "Man Cave Barbershop opens on Westmere Ave. 12+ years in business by 2026.", "Booksy", 3),
+    ]
+
+    move_count = 0
+    for comp_name, mdate, mtype, desc, source, impact in move_entries:
+        if comp_name in shop_ids:
+            mid = con.execute("SELECT nextval('seq_move')").fetchone()[0]
+            con.execute(
+                "INSERT INTO competitor_moves (move_id, competitor_id, move_date, move_type, description, source_url, impact_rating) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [mid, shop_ids[comp_name], mdate, mtype, desc, source, impact],
+            )
+            move_count += 1
+
+    print(f"Loaded {move_count} strategic moves")
+
     # ── SUMMARY ──────────────────────────────────────────────────────────
     total = con.execute("SELECT COUNT(*) FROM competitors").fetchone()[0]
     print(f"\n{'='*60}")
     print(f"  SEED COMPLETE")
     print(f"  {total} competitors | {price_count} prices | {social_count} social")
-    print(f"  {barber_count} barbers | {review_count} reviews")
+    print(f"  {barber_count} barbers | {review_count} reviews | {move_count} moves")
     print(f"  Database: {DB_PATH}")
     print(f"{'='*60}")
 
