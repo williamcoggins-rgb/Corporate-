@@ -1,0 +1,17 @@
+# Data files (local warehouse)
+data/
+*.duckdb
+*.duckdb.wal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Exports
+data/exports/
+
+# OS
+.DS_Store
