@@ -1,26 +1,29 @@
 """R&D DEPARTMENT — Research & Development
 
-Where your four assets compound:
+Where your five assets compound:
   1. THE CRAFT      — 10 years of haircuts, hands-on expertise
   2. THE DEGREE     — Business strategy, financial modeling, market analysis
   3. THE AI         — Claude as a research partner, analyst, and builder
   4. THE OS         — Proprietary booking system backed by a data warehouse
+  5. THE WAREHOUSE  — Major product distributor membership, wholesale access
 
 R&D is not operations. R&D is what you're building NEXT.
 Operations runs today. R&D builds tomorrow.
 
-This department has four labs, each combining your assets differently:
+This department has five labs, each combining your assets differently:
 
   Lab 1: SERVICE LAB      — New services, pricing models, bundles
   Lab 2: OS LAB           — Booking OS features, data products, automation
   Lab 3: MARKET LAB       — Market research, expansion models, demand analysis
   Lab 4: BUSINESS LAB     — Revenue models, financial instruments, growth plays
+  Lab 5: PRODUCT LAB      — Retail product strategy, inventory, brand building
 
 Run:  python rnd.py                        # Full R&D status + all labs
       python rnd.py --lab service          # Service Lab
       python rnd.py --lab os               # OS Lab
       python rnd.py --lab market           # Market Lab
       python rnd.py --lab business         # Business Lab
+      python rnd.py --lab product          # Product Lab
       python rnd.py --pipeline             # R&D pipeline (what's in progress)
       python rnd.py --assets               # Asset inventory
 
@@ -96,12 +99,15 @@ def init_rnd_schema():
 
 
 def _seed_assets():
-    """Seed the four core assets if not already present."""
+    """Seed the five core assets if not already present."""
     con = get_connection()
     existing = con.execute("SELECT COUNT(*) FROM rnd_assets").fetchone()[0]
-    if existing > 0:
+    if existing >= 5:
         con.close()
         return
+    # Clear and re-seed if we added a new asset
+    if existing > 0:
+        con.execute("DELETE FROM rnd_assets")
 
     assets = [
         {
@@ -212,6 +218,38 @@ def _seed_assets():
                 "revenue stream."
             ),
         },
+        {
+            "category": "THE WAREHOUSE",
+            "name": "Major Product Distributor Membership",
+            "description": (
+                "Active membership with a major grooming product distributor/warehouse. "
+                "Wholesale access to professional-grade products at distributor pricing. "
+                "This is not a retail account — this is the same supply chain the "
+                "big shops and chains use. Most solo barbers don't have this."
+            ),
+            "current_value": (
+                "Wholesale cost: ~$4-8/unit on products that retail $12-20+. "
+                "50-70% margins on every bottle. Access to professional lines "
+                "that aren't available at retail. Already referenced in revenue "
+                "model — retail product is an active income stream."
+            ),
+            "potential": (
+                "Full retail display in the shop (product-as-brand). "
+                "Subscription product boxes for clients (recurring revenue). "
+                "Bulk purchasing power for chair renters (value-add for recruitment). "
+                "Private label exploration (your brand on the bottle). "
+                "Product bundles with services (upsell at the chair). "
+                "Supply other independent barbers at a markup (B2B distribution)."
+            ),
+            "leverage_notes": (
+                "Most barbers buy product retail or through Booksy's marketplace "
+                "at marked-up prices. Your warehouse membership means you buy at "
+                "the same price as multi-location chains. In a shop with a retail "
+                "display, every product is pure margin. In a suite, you hand them "
+                "a bottle. In a shop, you build an environment. The warehouse "
+                "membership is the supply chain that makes retail a real revenue stream."
+            ),
+        },
     ]
 
     for a in assets:
@@ -228,10 +266,10 @@ def _seed_assets():
 
 
 def _seed_projects():
-    """Seed initial R&D projects if none exist."""
+    """Seed initial R&D projects if not at expected count."""
     con = get_connection()
     existing = con.execute("SELECT COUNT(*) FROM rnd_projects").fetchone()[0]
-    if existing > 0:
+    if existing >= 20:  # Expected count after product lab added
         con.close()
         return
 
@@ -405,7 +443,87 @@ def _seed_projects():
             "success_metric": "5+ programs identified with eligibility confirmed. 2 applications drafted.",
             "revenue_potential": "$5,000-50,000 in grants/microloans",
         },
+        # PRODUCT LAB
+        {
+            "lab": "product",
+            "title": "Retail Product Selection Strategy",
+            "description": (
+                "Research which product lines to stock. Analyze: what moves in Charlotte, "
+                "what your clients ask for, what margins look like across brands. "
+                "Use warehouse membership data to build a curated inventory."
+            ),
+            "status": "research",
+            "priority": "high",
+            "assets_used": json.dumps(["THE WAREHOUSE", "THE CRAFT", "THE DEGREE"]),
+            "hypothesis": "A data-driven product selection outperforms gut instinct. Stock what sells, not what looks good.",
+            "success_metric": "Top 10 SKUs identified with margin analysis. Reorder points calculated. 90-day sell-through projected.",
+            "revenue_potential": "$3,600-7,200/year retail margin (conservative)",
+        },
+        {
+            "lab": "product",
+            "title": "Product-Service Bundles",
+            "description": (
+                "Design bundles: Fade + product for $X, Combo + product kit for $Y. "
+                "Use wholesale pricing to build bundles that feel premium but cost you less. "
+                "Test 2-3 bundle configurations."
+            ),
+            "status": "research",
+            "priority": "high",
+            "assets_used": json.dumps(["THE WAREHOUSE", "THE CRAFT", "THE OS"]),
+            "hypothesis": "Bundles increase average ticket by 30-50% while giving the client perceived value.",
+            "success_metric": "3 bundles designed. Average ticket increase tracked via OS. Target: +$15 per bundled visit.",
+            "revenue_potential": "$4,000-8,000/year incremental",
+        },
+        {
+            "lab": "product",
+            "title": "Grooming Subscription Box",
+            "description": (
+                "Monthly product subscription for clients: curated grooming kit shipped or picked up. "
+                "$25-40/mo. Uses wholesale margins to deliver $50+ retail value. "
+                "Recurring revenue that doesn't require chair time."
+            ),
+            "status": "idea",
+            "priority": "medium",
+            "assets_used": json.dumps(["THE WAREHOUSE", "THE CRAFT", "THE DEGREE", "THE OS"]),
+            "hypothesis": "Clients who trust your hands will trust your product picks. Subscription = revenue while you sleep.",
+            "success_metric": "15 subscribers within 90 days. Churn < 20%/month. $10+ margin per box after shipping.",
+            "revenue_potential": "$4,500-14,400/year (15-30 subscribers at $25-40/mo)",
+        },
+        {
+            "lab": "product",
+            "title": "Chair Renter Supply Program",
+            "description": (
+                "Use warehouse membership to supply chair renters with product at a markup. "
+                "They get below-retail pricing. You get margin on volume you're already buying. "
+                "Value-add that makes your chairs more attractive than the competition's."
+            ),
+            "status": "idea",
+            "priority": "medium",
+            "assets_used": json.dumps(["THE WAREHOUSE", "THE DEGREE"]),
+            "hypothesis": "Chair renters will pay above-wholesale for convenience. This makes your chairs stickier.",
+            "success_metric": "2+ chair renters buying product through you. $100+/mo margin per renter.",
+            "revenue_potential": "$2,400-7,200/year (2-3 renters, $100-200/mo margin each)",
+        },
+        {
+            "lab": "product",
+            "title": "Private Label Feasibility Study",
+            "description": (
+                "Research: can you put YOUR brand on the bottle? White-label or private-label "
+                "grooming products through your distributor. Your name, your formulation specs, "
+                "their manufacturing. Study minimum order quantities, costs, and margins."
+            ),
+            "status": "idea",
+            "priority": "low",
+            "assets_used": json.dumps(["THE WAREHOUSE", "THE CRAFT", "THE DEGREE", "THE AI"]),
+            "hypothesis": "A barber-branded product line at wholesale cost has higher margins than reselling other brands.",
+            "success_metric": "MOQ and cost research complete. 2-3 product categories identified. Break-even calculated.",
+            "revenue_potential": "$10,000-30,000/year (if 50-100 units/mo at $15-25 margin)",
+        },
     ]
+
+    # Clear existing if we're re-seeding (count changed)
+    if existing > 0:
+        con.execute("DELETE FROM rnd_projects")
 
     for p in projects:
         pid = con.execute("SELECT nextval('seq_rnd_project')").fetchone()[0]
@@ -458,7 +576,7 @@ def _priority_tag(priority):
 # ════════════════════════════════════════════════════════════════════════
 
 def show_assets():
-    """Display the four core assets and how they compound."""
+    """Display the five core assets and how they compound."""
     _header("ASSET INVENTORY — What You're Working With")
 
     assets = _q("SELECT * FROM rnd_assets ORDER BY asset_id")
@@ -488,28 +606,42 @@ def show_assets():
   When assets combine, they multiply — not add.
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  CRAFT + DEGREE    = Strategic pricing, financial modeling of your  │
-  │                      services, lease-ready business plans           │
+  │  CRAFT + DEGREE      = Strategic pricing, financial modeling of    │
+  │                        your services, lease-ready business plans    │
   │                                                                      │
-  │  CRAFT + AI        = Market research on service trends, automated  │
-  │                      competitive pricing analysis, content ideas    │
+  │  CRAFT + AI          = Market research on service trends, content  │
+  │                        creation, competitive pricing analysis       │
   │                                                                      │
-  │  CRAFT + OS        = Transaction intelligence, client behavior     │
-  │                      data, rebooking optimization, deposit mgmt    │
+  │  CRAFT + OS          = Transaction intelligence, client behavior   │
+  │                        data, rebooking optimization, deposit mgmt  │
   │                                                                      │
-  │  DEGREE + AI       = Financial models, grant applications, market  │
-  │                      sizing, business plans at enterprise quality   │
+  │  CRAFT + WAREHOUSE   = Product authority — you USE what you sell.  │
+  │                        "Here's what I used on you" is the close.   │
+  │                        The hands validate the product.              │
   │                                                                      │
-  │  DEGREE + OS       = P&L dashboards, chair rental ROI tracking,   │
-  │                      revenue forecasting from real transaction data │
+  │  DEGREE + AI         = Financial models, grant apps, market sizing │
+  │                        business plans at enterprise quality         │
   │                                                                      │
-  │  AI + OS           = Feature development at zero dev cost,         │
-  │                      automated reporting, warehouse integration     │
+  │  DEGREE + OS         = P&L dashboards, chair rental ROI, revenue   │
+  │                        forecasting from real transaction data       │
   │                                                                      │
-  │  ALL FOUR          = A barber-operator with a proprietary tech     │
-  │                      stack, strategic intelligence system, and the  │
-  │                      business acumen to deploy it all. Nobody in    │
-  │                      Charlotte has this combination. Nobody.        │
+  │  DEGREE + WAREHOUSE  = Inventory management, margin analysis,      │
+  │                        retail P&L, wholesale buying strategy        │
+  │                                                                      │
+  │  AI + OS             = Feature development at zero dev cost,       │
+  │                        automated reporting, warehouse integration   │
+  │                                                                      │
+  │  AI + WAREHOUSE      = Product trend research, margin optimization │
+  │                        competitor product analysis, pricing models  │
+  │                                                                      │
+  │  OS + WAREHOUSE      = Track which products sell, attach rates per │
+  │                        client, auto-reorder triggers, retail KPIs  │
+  │                                                                      │
+  │  ALL FIVE            = A barber-operator with a proprietary tech   │
+  │                        stack, wholesale supply chain, strategic     │
+  │                        intelligence system, and the business acumen │
+  │                        to deploy it all. Nobody in Charlotte has    │
+  │                        this combination. Nobody.                    │
   └──────────────────────────────────────────────────────────────────────┘
 """)
 
@@ -601,6 +733,16 @@ def lab_business():
              "  Question: How do you fund and structure the next move?")
 
 
+def lab_product():
+    show_lab("product", "PRODUCT LAB — From Wholesale to Revenue",
+             "Retail product strategy, inventory planning, brand building.\n"
+             "  Assets: THE WAREHOUSE + THE CRAFT + THE DEGREE\n"
+             "  Question: How do you turn wholesale access into a revenue engine?\n\n"
+             "  Your distributor membership is the supply chain.\n"
+             "  Your craft is the credibility. Your degree is the margin math.\n"
+             "  Together they turn product into a second business inside the business.")
+
+
 # ════════════════════════════════════════════════════════════════════════
 #  R&D PIPELINE
 # ════════════════════════════════════════════════════════════════════════
@@ -645,7 +787,7 @@ def show_pipeline():
         print(f"      {_status_icon(s)} {s:15s}  {count}")
 
     # Count projects using each asset
-    asset_usage = {"THE CRAFT": 0, "THE DEGREE": 0, "THE AI": 0, "THE OS": 0}
+    asset_usage = {"THE CRAFT": 0, "THE DEGREE": 0, "THE AI": 0, "THE OS": 0, "THE WAREHOUSE": 0}
     for p in all_projects:
         if p["assets_used"]:
             for a in json.loads(p["assets_used"]):
@@ -672,7 +814,7 @@ def full_rnd():
     print("▓" + "R&D DEPARTMENT".center(68) + "▓")
     print("▓" + "Research & Development".center(68) + "▓")
     print("▓" + " " * 68 + "▓")
-    print("▓" + "Four assets. Four labs. One pipeline.".center(68) + "▓")
+    print("▓" + "Five assets. Five labs. One pipeline.".center(68) + "▓")
     print("▓" + " " * 68 + "▓")
     print("▓" * 70)
 
@@ -681,6 +823,7 @@ def full_rnd():
     lab_os()
     lab_market()
     lab_business()
+    lab_product()
     show_pipeline()
 
     _header("R&D DOCTRINE")
@@ -710,7 +853,7 @@ def full_rnd():
     You have a structured pipeline with hypothesis testing,
     asset tracking, and revenue projection.
 
-    That's the degree + the AI + the craft + the OS.
+    That's the degree + the AI + the craft + the OS + the warehouse.
     That's why nobody else in this market can do what you're doing.
 
   COMMANDS:
@@ -719,6 +862,7 @@ def full_rnd():
     python rnd.py --lab os               # OS Lab
     python rnd.py --lab market           # Market Lab
     python rnd.py --lab business         # Business Lab
+    python rnd.py --lab product          # Product Lab
     python rnd.py --pipeline             # Pipeline status
     python rnd.py --assets               # Asset inventory
 """)
@@ -733,6 +877,7 @@ LABS = {
     "os": lab_os,
     "market": lab_market,
     "business": lab_business,
+    "product": lab_product,
 }
 
 
