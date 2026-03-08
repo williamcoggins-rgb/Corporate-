@@ -3,6 +3,10 @@
 This is YOUR section. Not the warehouse. Not the agents.
 This reads the intelligence and tells you what to DO.
 
+Governed by: doctrine.py — The Doctrine of Strategic Intelligence
+  The doctrine defines WHY and HOW we think.
+  This file defines WHAT to do about it.
+
 Run:  python strategy.py
       python strategy.py --section pricing
       python strategy.py --section talent
@@ -10,6 +14,7 @@ Run:  python strategy.py
       python strategy.py --section expansion
       python strategy.py --section threats
       python strategy.py --section quick-wins
+      python strategy.py --section doctrine    # Run the doctrine audit
 """
 
 import sys
@@ -670,7 +675,15 @@ def quick_wins():
 #  MAIN
 # ════════════════════════════════════════════════════════════════════════
 
+def run_doctrine():
+    """Run the doctrine framework and audit."""
+    from doctrine import print_doctrine, doctrine_audit
+    print_doctrine()
+    doctrine_audit()
+
+
 SECTIONS = {
+    "doctrine": run_doctrine,
     "pricing": pricing_strategy,
     "talent": talent_strategy,
     "positioning": positioning_strategy,
