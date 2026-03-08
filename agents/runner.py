@@ -16,9 +16,11 @@ from agents.pricing_scout import PricingScout
 from agents.review_harvester import ReviewHarvester
 from agents.social_listener import SocialListener
 from agents.shop_watcher import ShopWatcher
+from agents.platform_scout import PlatformScout
 from agents.normalizer import Normalizer
 from agents.barber_enricher import BarberEnricher
 from agents.delta_spotter import DeltaSpotter
+from agents.platform_analyzer import PlatformAnalyzer
 from agents.scorecard import Scorecard
 from agents.alerts import PriceWarAlert, ReputationRadar, TalentTracker
 from agents.digest import WeeklyDigest
@@ -32,10 +34,12 @@ AGENTS = {
     "review_harvester": ReviewHarvester,
     "social_listener": SocialListener,
     "shop_watcher": ShopWatcher,
+    "platform_scout": PlatformScout,
     # Tier 2: Transformation (Detail Crew)
     "normalizer": Normalizer,
     "barber_enricher": BarberEnricher,
     "delta_spotter": DeltaSpotter,
+    "platform_analyzer": PlatformAnalyzer,
     # Tier 3: Analytics (Analytics Team)
     "scorecard": Scorecard,
     # Tier 4: Alerts (Early Warning System)
@@ -46,8 +50,8 @@ AGENTS = {
 }
 
 TIERS = {
-    "tier1": ["pricing_scout", "review_harvester", "social_listener", "shop_watcher"],
-    "tier2": ["normalizer", "barber_enricher", "delta_spotter"],
+    "tier1": ["pricing_scout", "review_harvester", "social_listener", "shop_watcher", "platform_scout"],
+    "tier2": ["normalizer", "barber_enricher", "delta_spotter", "platform_analyzer"],
     "tier3": ["scorecard"],
     "tier4": ["price_war_alert", "reputation_radar", "talent_tracker", "weekly_digest"],
 }

@@ -190,6 +190,54 @@ def init_schema():
         );
     """)
 
+    # --- Booking Platform Intelligence tables ---
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS platform_profiles (
+            id INTEGER PRIMARY KEY,
+            competitor_id INTEGER REFERENCES competitors(competitor_id),
+            platform VARCHAR NOT NULL,
+            profile_url VARCHAR,
+            rating DECIMAL(2,1),
+            review_count INTEGER DEFAULT 0,
+            is_verified BOOLEAN DEFAULT FALSE,
+            accepts_online_booking BOOLEAN DEFAULT TRUE,
+            payment_methods VARCHAR,
+            profile_completeness VARCHAR,
+            last_active DATE,
+            notes TEXT,
+            collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS platform_solo_barbers (
+            id INTEGER PRIMARY KEY,
+            barber_name VARCHAR NOT NULL,
+            platform VARCHAR NOT NULL,
+            profile_url VARCHAR,
+            zip_code VARCHAR,
+            neighborhood VARCHAR,
+            rating DECIMAL(2,1),
+            review_count INTEGER DEFAULT 0,
+            years_experience VARCHAR,
+            specialties TEXT,
+            price_range VARCHAR,
+            fade_price DECIMAL(8,2),
+            haircut_price DECIMAL(8,2),
+            beard_price DECIMAL(8,2),
+            combo_price DECIMAL(8,2),
+            accepts_walkins BOOLEAN DEFAULT FALSE,
+            chair_rental BOOLEAN DEFAULT FALSE,
+            instagram_handle VARCHAR,
+            ownership_type VARCHAR,
+            primary_clientele VARCHAR,
+            status VARCHAR DEFAULT 'Active',
+            notes TEXT,
+            collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
     con.execute("""
         CREATE SEQUENCE IF NOT EXISTS seq_competitor START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_product START 1;
@@ -204,6 +252,8 @@ def init_schema():
         CREATE SEQUENCE IF NOT EXISTS seq_alert START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_agent_run START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_score START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_platform_profile START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_platform_solo START 1;
     """)
 
     con.close()
