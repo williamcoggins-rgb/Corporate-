@@ -355,7 +355,13 @@ def doctrine_audit():
     print(f"    Market areas mapped: {expansion_areas}")
     print(f"    Barber talent intel: {barber_intel} barbers tracked")
     print(f"    Social intel points: {social_intel}")
-    print(f"    Booking platform: {YOUR_SHOP.get('booking_platform') or 'NONE — GET ON BOOKSY'}")
+    booking = YOUR_SHOP.get("booking_platform") or "NONE"
+    has_proprietary_os = YOUR_SHOP.get("booking_os", {}).get("type") == "proprietary"
+    if has_proprietary_os:
+        print(f"    Booking platform: {booking} — PROPRIETARY OS (competitive weapon)")
+    else:
+        print(f"    Booking platform: {booking or 'NONE — GET ON BOOKSY'}")
+    print(f"    Years experience: {YOUR_SHOP.get('years_experience', 'Not set')}")
     print(f"    Instagram followers: {YOUR_SHOP.get('instagram_followers', 0)}")
 
     scores["prime_law"] = (present_score + future_score, 20)
@@ -425,8 +431,10 @@ def doctrine_audit():
 
     # Organization coverage
     print(f"\n  ORGANIZATION (internal system):")
+    os_info = YOUR_SHOP.get("booking_os", {})
     org_items = {
         "Shop name": YOUR_SHOP.get("name", "Not set"),
+        "Experience": f"{YOUR_SHOP.get('years_experience', 'N/A')} years",
         "Barbers": YOUR_SHOP.get("barbers", 0),
         "Price menu": f"{len(YOUR_SHOP.get('prices', {}))} services",
         "Booking platform": YOUR_SHOP.get("booking_platform") or "None",
@@ -435,15 +443,26 @@ def doctrine_audit():
     for k, v in org_items.items():
         print(f"    {k:30s}  {v}")
 
+    if os_info.get("type") == "proprietary":
+        print(f"\n    PROPRIETARY BOOKING OS:")
+        for feat in os_info.get("features", []):
+            print(f"      ◆ {feat}")
+        migrating = os_info.get("migrating_from")
+        if migrating:
+            print(f"      Migrating from: {migrating}")
+        print(f"      Advantage: {os_info.get('advantage', 'N/A')}")
+
+    veteran = YOUR_SHOP.get("years_experience", 0) >= 5
     org_score = sum([
         2 if mission_defined else 0,
-        2 if YOUR_SHOP.get("barbers", 0) >= 1 else 0,
+        2 if veteran else 1 if YOUR_SHOP.get("years_experience", 0) >= 1 else 0,
         2 if has_prices else 0,
         2 if YOUR_SHOP.get("booking_platform") else 0,
+        2 if has_proprietary_os else 0,  # Proprietary OS is a separate advantage
         2 if YOUR_SHOP.get("neighborhood") else 0,
     ])
-    org_grade, org_bar = _grade(org_score, 10)
-    print(f"    Readiness:        {org_bar}  {org_grade}  ({org_score}/10)")
+    org_grade, org_bar = _grade(org_score, 12)
+    print(f"    Readiness:        {org_bar}  {org_grade}  ({org_score}/12)")
 
     # Intelligence coverage
     print(f"\n  INTELLIGENCE (the bridge):")
@@ -468,7 +487,7 @@ def doctrine_audit():
     print(f"    Capability:       {intel_bar}  {intel_grade}  ({intel_score}/10)")
 
     trinity_score = env_score + org_score + intel_score
-    scores["strategic_trinity"] = (trinity_score, 30)
+    scores["strategic_trinity"] = (trinity_score, 32)
 
     # ── IV. STRATEGIC PROCESS AUDIT ─────────────────────────────────
     _header("IV. STRATEGIC PROCESS AUDIT — The Four Stages")
@@ -489,6 +508,8 @@ def doctrine_audit():
         ]),
         ("3. IMPLEMENTATION", [
             ("Booking platform active", YOUR_SHOP.get("booking_platform") is not None),
+            ("Proprietary OS deployed", has_proprietary_os),
+            ("10+ years industry experience", veteran),
             ("Instagram launched", YOUR_SHOP.get("instagram_followers", 0) > 0),
             ("Location secured", YOUR_SHOP.get("neighborhood") is not None),
             ("First chair rented", YOUR_SHOP.get("barbers", 1) > 1),
@@ -639,17 +660,37 @@ def doctrine_audit():
         print("  Intelligence is being gathered. Focus on the 30-day quick wins.")
 
     # Critical gaps
-    print(f"\n  CRITICAL GAPS:")
-    if not YOUR_SHOP.get("booking_platform"):
-        print("    ▸ No booking platform — get on Booksy TODAY")
-    if YOUR_SHOP.get("instagram_followers", 0) == 0:
-        print("    ▸ Zero Instagram presence — create account TODAY")
-    if not YOUR_SHOP.get("neighborhood"):
-        print("    ▸ No location set — update YOUR_SHOP in strategy.py")
+    gaps = []
     if YOUR_SHOP.get("name") == "Your Shop":
-        print("    ▸ Shop not named — update YOUR_SHOP['name'] in strategy.py")
+        gaps.append("Shop not named — update YOUR_SHOP['name'] in strategy.py")
+    if not YOUR_SHOP.get("neighborhood"):
+        gaps.append("No location set — update YOUR_SHOP in strategy.py")
+    if YOUR_SHOP.get("instagram_followers", 0) == 0:
+        gaps.append("Zero Instagram presence — your 10yr reputation needs digital proof")
     if not has_premium:
-        print("    ▸ No premium tier ($60+) — add Royal Treatment service")
+        gaps.append("No premium tier ($60+) — add Royal Treatment service")
+
+    # Proprietary OS specific
+    os_info = YOUR_SHOP.get("booking_os", {})
+    if os_info.get("migrating_from"):
+        gaps.append(f"Still on {os_info['migrating_from']} — complete migration to your OS")
+
+    if gaps:
+        print(f"\n  CRITICAL GAPS:")
+        for g in gaps:
+            print(f"    ▸ {g}")
+    else:
+        print(f"\n  NO CRITICAL GAPS — doctrine is fully operational.")
+
+    # Advantages
+    print(f"\n  COMPETITIVE ADVANTAGES:")
+    if has_proprietary_os:
+        print("    ◆ PROPRIETARY BOOKING OS — only one in the market")
+    if veteran:
+        print(f"    ◆ {YOUR_SHOP.get('years_experience', 0)} YEARS EXPERIENCE — veteran operator")
+    if has_premium:
+        print("    ◆ PREMIUM PRICING POSITION — above market average")
+    print("    ◆ COMPETITIVE INTELLIGENCE SYSTEM — warehouse + agents + doctrine")
 
     print()
 

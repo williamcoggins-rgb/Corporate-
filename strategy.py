@@ -37,9 +37,21 @@ YOUR_SHOP = {
         "Student Haircut": 25,
         "Haircut + Beard Combo": 65,
     },
-    "barbers": 1,  # Just you starting out
+    "barbers": 1,
+    "years_experience": 10,
     "instagram_followers": 0,
-    "booking_platform": None,  # Booksy, Squire, Fresha, or None
+    "booking_platform": "Proprietary OS",  # Custom-built booking OS w/ live intelligence
+    "booking_os": {
+        "type": "proprietary",
+        "features": [
+            "Live transaction intelligence",
+            "Adaptive scheduling from day-to-day patterns",
+            "Backed by its own data warehouse",
+            "Competitive intelligence integration",
+        ],
+        "migrating_from": "Booksy",  # Transitioning off Booksy
+        "advantage": "No competitor in this market has anything close to this",
+    },
     "monthly_rent_budget": None,
 }
 
@@ -238,12 +250,13 @@ def talent_strategy():
 
     move_num = 1
 
-    _move(move_num, "DON'T HIRE — BUILD A CHAIR RENTAL MODEL",
-          "The top shops run on chair rental, not employment.\n"
-          "Ed Washington (No Grease franchisee) gives lead barbers 10% EQUITY.\n"
-          "That's the model to beat. You can't match it on salary.\n"
-          "Start with 1-2 chair rentals at $200-300/week. Let barbers keep their clients.\n"
-          "Your cut: rent + product sales + walk-in overflow.",
+    _move(move_num, "YOUR OS IS YOUR RECRUITING PITCH",
+          "You built what no other shop in Charlotte has — a proprietary booking OS.\n"
+          "Chair rental barbers currently use Booksy/Squire and PAY for it.\n"
+          "Your offer: rent a chair AND get access to the OS. No monthly software fee.\n"
+          "Your OS tracks their clients, optimizes their schedule, shows them their numbers.\n"
+          "Ed Washington (No Grease) gives 10% equity. You give technology.\n"
+          "Start with 1-2 chair rentals at $200-300/week + OS access.",
           "SOON")
     move_num += 1
 
@@ -252,7 +265,8 @@ def talent_strategy():
           "12-18 month program, 1,528 hours. Fresh graduates need chairs.\n"
           "Shaun 'Lucky' Corbett graduated there in 2005 — now has 5 Walmart locations.\n"
           "Contact: (980) 819-9481, 3731 N Sharon Amity Rd.\n"
-          "Offer: first 3 months at reduced chair rent to build book.",
+          "Your pitch: chair rental + your OS + mentorship from a 10-year barber.\n"
+          "Nobody else in this market can offer that stack.",
           "SOON")
     move_num += 1
 
@@ -264,7 +278,7 @@ def talent_strategy():
         if s.get("seniority"):
             print(f"      {'':25s} Seniority: {s['seniority']}")
 
-    _move(move_num + 1, "SPECIALIZE — FIND YOUR SIGNATURE",
+    _move(move_num + 1, "YOUR SIGNATURE IS THE SYSTEM ITSELF",
           "The market leaders all have a THING:\n"
           "  • No Grease → 'The Royal Treatment' (facials + premium experience)\n"
           "  • Damu Gordon → Celebrity/NFL barber (aspirational brand)\n"
@@ -273,7 +287,9 @@ def talent_strategy():
           "  • Tara (Fade Factory) → Women/kids specialist + bridal\n"
           "  • Marcus C. → 'The Beard Barber' (niche dominance)\n"
           "\n"
-          "Pick your lane. 'Good at everything' = invisible in this market.",
+          "YOUR THING: 10 years of craft + a proprietary intelligence system.\n"
+          "You're the barber who built his own tech. That IS the brand.\n"
+          "The barber-technologist. The shop that runs on its own brain.",
           "NOW")
 
 
@@ -336,21 +352,32 @@ def positioning_strategy():
 
     move_num = 1
 
-    _move(move_num, "GET ON BOOKSY — YESTERDAY",
-          "Booksy dominates Charlotte's Black barbershop market.\n"
-          "No Grease, Man Cave, Fade Factory, Goodfellas, Headlines — all on Booksy.\n"
-          "Clients search Booksy like they search Google.\n"
-          "If you're not on Booksy, you don't exist to half the market.\n"
-          "Setup is free for basic. Do it today.",
+    _move(move_num, "YOUR BOOKING OS IS A COMPETITIVE WEAPON — USE IT",
+          "Every competitor in this market rents their brain from Booksy or Squire.\n"
+          "You BUILT yours. It adapts. It learns from your transactions. It has its own warehouse.\n"
+          "This is the single biggest technological advantage in Charlotte's barbershop market.\n"
+          "\n"
+          "Transition plan off Booksy:\n"
+          "  1. Migrate your existing Booksy client list to your OS\n"
+          "  2. Run both in parallel for 30 days (catch stragglers)\n"
+          "  3. Send every Booksy client a direct link to your OS\n"
+          "  4. Kill Booksy. You don't need a landlord for your own house.\n"
+          "\n"
+          "What none of them can do:\n"
+          f"  Booksy shops: {next((b['shops'] for b in booking if b['platform']=='Booksy'), 0)}\n"
+          f"  Squire shops: {next((b['shops'] for b in booking if b['platform']=='Squire'), 0)}\n"
+          f"  Walk-in only: {next((b['shops'] for b in booking if b['platform']=='None/Walk-in'), 0)}\n"
+          "  Proprietary OS: 1 — YOU. Nobody else has this.",
           "NOW")
     move_num += 1
 
-    _move(move_num, "INSTAGRAM: 1,000 FOLLOWERS IN 90 DAYS",
+    _move(move_num, "INSTAGRAM: AMPLIFY THE 10-YEAR REPUTATION",
           "Steve the Barber has 40,000. No Grease has 24,000. Headlines has 17,000.\n"
-          "You have 0. You don't need 40K — you need 1,000 real local followers.\n"
+          "You have 10 years of work. Every satisfied client is a testimonial.\n"
           "Post EVERY cut. Before/after. Tag the client (with permission).\n"
           "Use: #CharlotteBarber #CLTBarber #704Barber #BlackOwnedCLT\n"
-          "Reels of fades get 10x the reach of photos. Post 1 reel/day.",
+          "Reels of fades get 10x the reach of photos. Post 1 reel/day.\n"
+          "Your booking OS should auto-prompt clients for IG tags post-appointment.",
           "NOW")
     move_num += 1
 
@@ -596,43 +623,43 @@ def quick_wins():
     _header("QUICK WINS — Your 30-60-90 Day Playbook")
 
     print("""
-  ┌─────────────────────────────────────────────────────────────────┐
-  │  DAYS 1-30: FOUNDATION                                         │
-  ├─────────────────────────────────────────────────────────────────┤
-  │                                                                 │
-  │  □ Get on Booksy (free basic plan). Upload your best 10 cuts.  │
-  │  □ Create Instagram. Post 1 cut/day. Use #CharlotteBarber      │
-  │  □ Set up Google Business Profile. Get first 5 reviews.        │
-  │  □ Your fade is $45 — ABOVE market avg. Own the premium.       │
-  │  □ Add a $75+ 'Royal Treatment' tier (cut+beard+towel+massage).│
-  │  □ Print QR code for reviews — tape it to the mirror.          │
-  │  □ Research locations in South End, Plaza Midwood, Ballantyne. │
-  │                                                                 │
-  ├─────────────────────────────────────────────────────────────────┤
-  │  DAYS 31-60: VISIBILITY                                        │
-  ├─────────────────────────────────────────────────────────────────┤
-  │                                                                 │
-  │  □ 25+ Google reviews. Respond to every single one.            │
-  │  □ 500+ Instagram followers. First reel over 1K views.         │
-  │  □ Visit No Grease Barber School — introduce yourself.         │
-  │  □ Pick your SIGNATURE service (the thing you're known for).   │
-  │  □ Launch 1 community initiative (free cuts for interviews).   │
-  │  □ Start tracking competitor prices weekly (run agents).       │
-  │  □ Test a weekend pop-up in a non-traditional location.        │
-  │                                                                 │
-  ├─────────────────────────────────────────────────────────────────┤
-  │  DAYS 61-90: GROWTH                                            │
-  ├─────────────────────────────────────────────────────────────────┤
-  │                                                                 │
-  │  □ 50+ Google reviews. 1,000+ Instagram followers.             │
-  │  □ First chair rental barber onboarded ($200-300/week).        │
-  │  □ Premium service generating 20%+ of revenue.                 │
-  │  □ Booksy profile fully optimized (photos, hours, all svcs).   │
-  │  □ Run full agent pipeline — update competitive intel.         │
-  │  □ Identify lease for permanent location if not already set.   │
-  │  □ Evaluate: Squire as upgrade from Booksy (better for growth) │
-  │                                                                 │
-  └─────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  DAYS 1-30: TRANSITION & DEPLOYMENT                             │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  □ Migrate Booksy client list into your booking OS               │
+  │  □ Run Booksy + your OS in parallel (catch stragglers)           │
+  │  □ Direct-message every Booksy client your new booking link      │
+  │  □ Your fade is $45 — ABOVE market avg. Own the premium.        │
+  │  □ Add a $75+ 'Royal Treatment' tier in your OS                  │
+  │  □ Integrate review prompts into your OS post-appointment flow   │
+  │  □ Connect your OS analytics to this competitive warehouse       │
+  │                                                                  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │  DAYS 31-60: KILL BOOKSY, OWN YOUR DATA                        │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  □ Shut down Booksy. 100% of bookings through YOUR OS.          │
+  │  □ 25+ Google reviews. Respond to every single one.              │
+  │  □ Leverage 10yr reputation — Instagram reels of your best work  │
+  │  □ Your OS should surface: peak hours, no-show patterns, upsells │
+  │  □ Launch 1 community initiative (free cuts for interviews).     │
+  │  □ Run competitive intel agents weekly — price/move tracking     │
+  │  □ Visit No Grease Barber School — recruit talent pipeline       │
+  │                                                                  │
+  ├──────────────────────────────────────────────────────────────────┤
+  │  DAYS 61-90: SCALE THE ADVANTAGE                                │
+  ├──────────────────────────────────────────────────────────────────┤
+  │                                                                  │
+  │  □ 50+ Google reviews. OS generating client retention insights   │
+  │  □ First chair rental barber onboarded — give them OS access     │
+  │  □ Premium service generating 20%+ of revenue.                   │
+  │  □ Your OS is now your moat: no competitor can replicate this    │
+  │  □ Cross-reference OS transaction data with competitive intel    │
+  │  □ Evaluate: licensing your OS to other independent barbers?     │
+  │  □ Run full agent pipeline — refresh all competitive data        │
+  │                                                                  │
+  └──────────────────────────────────────────────────────────────────┘
 """)
 
     # Revenue projection
