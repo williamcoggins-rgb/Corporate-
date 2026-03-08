@@ -106,21 +106,29 @@ would use it are sitting in the research phase.
    clients buy them. This is the lowest-risk way to raise your average
    ticket by $15 or more per visit.
 
-3. **Ask 30 clients what they think.** Print a simple feedback card.
-   Ask about premium services, memberships, and products. Get real data
-   instead of guessing.
+3. **Ask four questions in the chair.** While you're already cutting
+   hair, ask: (a) Would you pay $75+ for a premium experience? (b) Would
+   you buy a product I recommend? (c) Would you pay monthly for a
+   guaranteed weekly slot? (d) Where are you driving from? No surveys.
+   No extra time. Just conversation.
 
 4. **Build your financial model for the shop.** You need a spreadsheet
    that shows three scenarios — conservative, moderate, and optimistic —
    with break-even points. This is the document that convinces a landlord
    or a lender.
 
-5. **Kill Barber Consulting and Private Label.** They are distractions.
-   You can revisit them in a year.
+5. **Shelve OS Licensing (#8) and Barber Consulting (#14).** OS
+   Licensing means building a SaaS company — documentation, support,
+   sales, onboarding — while your own shop isn't open yet. And it gives
+   your competitive advantage away. Barber Consulting's only success
+   metric is "3 conversations" — that's not a business, and you'd be
+   helping competitors before your own shop exists. Neither gets you
+   from suite to shop. Revisit both a year after the shop is profitable.
 
-6. **Write Concept Papers for your top 5 projects.** Booksy Migration,
-   Royal Treatment Premium Tier, Shop P&L Model, Lease Playbook, and
-   Client Geography. One page each. Follow your own rules.
+6. **Agents write the Concept Papers.** Agent 4 (Concept Paper Manager)
+   drafts them for the top 5 projects: Booksy Migration, Royal Treatment,
+   Shop P&L, Lease Playbook, and Client Geography. You review and approve.
+   This is their job, not yours.
 
 ### Months 2-3
 
