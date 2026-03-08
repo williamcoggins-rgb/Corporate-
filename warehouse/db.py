@@ -84,12 +84,122 @@ def init_schema():
         );
     """)
 
+    # --- Extended tables for agent system ---
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS neighborhoods (
+            neighborhood_id INTEGER PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            zip_code VARCHAR,
+            city VARCHAR DEFAULT 'Charlotte',
+            state VARCHAR DEFAULT 'NC',
+            demographics_notes TEXT,
+            market_saturation VARCHAR
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS barbers (
+            barber_id INTEGER PRIMARY KEY,
+            competitor_id INTEGER REFERENCES competitors(competitor_id),
+            name VARCHAR NOT NULL,
+            instagram_handle VARCHAR,
+            specialties TEXT,
+            seniority VARCHAR,
+            notes TEXT,
+            first_seen DATE DEFAULT CURRENT_DATE,
+            last_seen DATE DEFAULT CURRENT_DATE,
+            status VARCHAR DEFAULT 'Active'
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS barber_specialties (
+            id INTEGER PRIMARY KEY,
+            barber_id INTEGER REFERENCES barbers(barber_id),
+            specialty VARCHAR NOT NULL,
+            skill_level VARCHAR,
+            source VARCHAR
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY,
+            competitor_id INTEGER REFERENCES competitors(competitor_id),
+            service_name VARCHAR NOT NULL,
+            price DECIMAL(8,2),
+            recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            source VARCHAR
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS review_snapshots (
+            id INTEGER PRIMARY KEY,
+            competitor_id INTEGER REFERENCES competitors(competitor_id),
+            platform VARCHAR NOT NULL,
+            rating DECIMAL(2,1),
+            review_text TEXT,
+            reviewer_name VARCHAR,
+            review_date DATE,
+            sentiment_score DECIMAL(4,2),
+            keywords TEXT,
+            collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS alerts_log (
+            alert_id INTEGER PRIMARY KEY,
+            alert_type VARCHAR NOT NULL,
+            severity VARCHAR DEFAULT 'info',
+            competitor_id INTEGER,
+            title VARCHAR NOT NULL,
+            detail TEXT,
+            data_json TEXT,
+            acknowledged BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS agent_runs (
+            run_id INTEGER PRIMARY KEY,
+            agent_name VARCHAR NOT NULL,
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            finished_at TIMESTAMP,
+            status VARCHAR DEFAULT 'running',
+            records_processed INTEGER DEFAULT 0,
+            notes TEXT
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS competitor_scores (
+            id INTEGER PRIMARY KEY,
+            competitor_id INTEGER REFERENCES competitors(competitor_id),
+            score_type VARCHAR NOT NULL,
+            score DECIMAL(5,2),
+            components TEXT,
+            scored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
     con.execute("""
         CREATE SEQUENCE IF NOT EXISTS seq_competitor START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_product START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_financial START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_move START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_social START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_neighborhood START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_barber START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_barber_spec START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_price_history START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_review START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_alert START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_agent_run START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_score START 1;
     """)
 
     con.close()
