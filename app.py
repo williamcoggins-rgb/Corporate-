@@ -253,12 +253,21 @@ DASHBOARD_HTML = r'''<!DOCTYPE html>
   --shadow-glow-red: 0 0 30px rgba(230, 57, 70, 0.12);
   --shadow-glow-teal: 0 0 30px rgba(46, 196, 182, 0.12);
 
-  --radius: 16px;
-  --radius-sm: 10px;
-  --radius-xs: 6px;
+  --radius: 24px;
+  --radius-sm: 14px;
+  --radius-xs: 8px;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+  /* Fluid type scale */
+  --text-xs: clamp(0.6875rem, 0.5vw + 0.5rem, 0.75rem);
+  --text-sm: clamp(0.8125rem, 0.6vw + 0.6rem, 0.875rem);
+  --text-base: clamp(0.875rem, 0.8vw + 0.6rem, 1rem);
+  --text-lg: clamp(1.125rem, 1vw + 0.75rem, 1.25rem);
+  --text-xl: clamp(1.5rem, 2vw + 0.75rem, 2rem);
+  --text-2xl: clamp(2rem, 3vw + 1rem, 3rem);
+  --text-hero: clamp(2.5rem, 4vw + 1rem, 3.5rem);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -394,11 +403,11 @@ body {
   box-shadow: 0 0 20px rgba(230,57,70,0.2), 0 0 20px rgba(46,196,182,0.2);
 }
 .topbar-title {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   text-transform: uppercase;
-  background: linear-gradient(90deg, var(--white), var(--text-secondary));
+  background: linear-gradient(135deg, var(--white) 0%, rgba(250,250,250,0.6) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -517,20 +526,44 @@ body {
    GLASS CARD — base component
    ═══════════════════════════════════════════════════════════════ */
 .card {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid var(--border-subtle);
+  background: rgba(15, 15, 20, 0.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(250,250,250,0.07);
   border-radius: var(--radius);
-  padding: 22px 24px;
+  padding: 24px 26px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition: border-color 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              background 0.4s;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2),
+              inset 0 1px 0 rgba(250,250,250,0.04);
+  container-type: inline-size;
 }
 .card:hover {
-  border-color: rgba(250,250,250,0.1);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  border-color: rgba(250,250,250,0.12);
+  background: rgba(15, 15, 20, 0.75);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.35),
+              inset 0 1px 0 rgba(250,250,250,0.06);
 }
+/* Stripe flashlight hover — radial gradient follows cursor */
+.card .spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    500px circle at var(--mx) var(--my),
+    rgba(46, 196, 182, 0.08),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  z-index: 0;
+}
+.card:hover .spotlight { opacity: 1; }
+.card > *:not(.spotlight) { position: relative; z-index: 1; }
 .card-header {
   display: flex;
   align-items: center;
@@ -567,30 +600,57 @@ body {
   inset: -1px;
   border-radius: var(--radius);
   padding: 1px;
-  background: conic-gradient(from var(--angle), var(--red), transparent 30%, var(--teal), transparent 70%, var(--red));
+  background: conic-gradient(from var(--angle), var(--red), transparent 25%, var(--teal), transparent 65%, var(--red));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: spin-border 6s linear infinite;
+  animation: spin-border 5s linear infinite;
   opacity: 0;
-  transition: opacity 0.4s;
+  transition: opacity 0.5s;
+  z-index: 2;
 }
-.card-glow:hover::before { opacity: 0.5; }
+/* Blur halo behind the rotating border */
+.card-glow::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius);
+  background: conic-gradient(from var(--angle), var(--red), transparent 25%, var(--teal), transparent 65%, var(--red));
+  filter: blur(18px);
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: -1;
+  animation: spin-border 5s linear infinite;
+}
+.card-glow:hover::before { opacity: 0.6; }
+.card-glow:hover::after { opacity: 0.2; }
 
 /* ═══════════════════════════════════════════════════════════════
    STAT NUMBERS — big metric display
    ═══════════════════════════════════════════════════════════════ */
 .stat-big {
-  font-size: 42px;
+  font-size: var(--text-hero);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -0.04em;
   margin: 6px 0;
+  font-variant-numeric: tabular-nums;
 }
-.stat-big.red { color: var(--red); text-shadow: 0 0 30px rgba(230,57,70,0.2); }
-.stat-big.teal { color: var(--teal); text-shadow: 0 0 30px rgba(46,196,182,0.2); }
-.stat-big.white { color: var(--white); }
+.stat-big.red {
+  background: linear-gradient(135deg, var(--red), var(--red-soft));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(230,57,70,0.25));
+}
+.stat-big.teal {
+  background: linear-gradient(135deg, var(--teal), var(--teal-soft));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(46,196,182,0.25));
+}
+.stat-big.white {
+  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
 
 .stat-row {
   display: flex;
@@ -629,20 +689,25 @@ body {
 }
 .metric-cell {
   background: rgba(250,250,250,0.03);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 14px 16px;
+  padding: 16px 18px;
   text-align: center;
-  transition: background 0.2s, border-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: inset 0 1px 0 rgba(250,250,250,0.03);
 }
 .metric-cell:hover {
-  background: rgba(250,250,250,0.05);
-  border-color: rgba(250,250,250,0.1);
+  background: rgba(250,250,250,0.06);
+  border-color: rgba(46,196,182,0.2);
+  box-shadow: inset 0 1px 0 rgba(250,250,250,0.05), 0 0 16px rgba(46,196,182,0.06);
+  transform: translateY(-1px);
 }
 .metric-value {
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--white);
+  font-variant-numeric: tabular-nums;
 }
 .metric-label {
   font-size: 10px;
@@ -1047,6 +1112,7 @@ body {
 
     <!-- HERO CARD — Revenue Command -->
     <div class="card card-glow b-hero">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Revenue Command</span>
         <span class="card-badge badge-teal">LIVE</span>
@@ -1080,6 +1146,7 @@ body {
 
     <!-- COUNCIL CARD -->
     <div class="card card-glow b-side">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">The Council</span>
         {% set yes_votes = data.council.values()|selectattr('ready')|list|length %}
@@ -1103,6 +1170,7 @@ body {
 
     <!-- PRICING CARD -->
     <div class="card card-glow b-wide">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Service Menu vs Market</span>
         <span class="card-badge badge-teal">{{ data.prices|length }} SERVICES</span>
@@ -1125,6 +1193,7 @@ body {
 
     <!-- COMPETITIVE MOVES -->
     <div class="card card-glow b-wide">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Competitor Moves</span>
         <span class="card-badge badge-red">LIVE FEED</span>
@@ -1149,6 +1218,7 @@ body {
 
     <!-- OS STATUS -->
     <div class="card card-glow b-third">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Proprietary OS</span>
         <span class="card-badge {% if data.shop.has_proprietary_os %}badge-green{% else %}badge-red{% endif %}">
@@ -1170,6 +1240,7 @@ body {
 
     <!-- AGENT STATUS -->
     <div class="card card-glow b-third">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Agent Fleet</span>
         <span class="card-badge badge-teal">13 AGENTS</span>
@@ -1190,6 +1261,7 @@ body {
 
     <!-- ALERTS -->
     <div class="card card-glow b-third">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Alert Feed</span>
         <span class="card-badge badge-yellow">{{ data.alerts|length }} ALERTS</span>
@@ -1217,6 +1289,7 @@ body {
 
     <!-- R&D PROJECTS -->
     <div class="card card-glow b-hero">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Project Pipeline</span>
         <span class="card-badge badge-teal">{{ data.rnd_projects|length }} PROJECTS</span>
@@ -1250,6 +1323,7 @@ body {
 
     <!-- TERRITORY MAP -->
     <div class="card card-glow b-side">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Territory Intel</span>
         <span class="card-badge badge-teal">{{ data.neighborhoods|length }} ZONES</span>
@@ -1289,6 +1363,7 @@ body {
 
     <!-- SOCIAL LEADERS -->
     <div class="card card-glow b-half">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Social Landscape</span>
         <span class="card-badge badge-red">TOP 5</span>
@@ -1321,6 +1396,7 @@ body {
 
     <!-- THREAT BOARD -->
     <div class="card card-glow b-half">
+      <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Threat Board</span>
         <span class="card-badge badge-red">{{ data.top_threats|length }} TRACKED</span>
@@ -1365,43 +1441,73 @@ body {
 </div><!-- /shell -->
 
 <script>
-// Auto-refresh dashboard data every 30 seconds
 const DATA = {{ data_json|safe }};
 
-// Animate price bars on load
 document.addEventListener('DOMContentLoaded', () => {
+
+  // ═══ STRIPE FLASHLIGHT — cursor-tracking radial glow ═══
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+      card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+    });
+  });
+
+  // ═══ STAGGERED CARD ENTRANCE ═══
+  cards.forEach((card, i) => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(16px) scale(0.98)';
+    card.style.transition = `opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${50 + i * 50}ms, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${50 + i * 50}ms`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0) scale(1)';
+      });
+    });
+  });
+
+  // ═══ ANIMATE PRICE BARS ═══
   const bars = document.querySelectorAll('.price-bar-fill');
   bars.forEach((bar, i) => {
     const w = bar.style.width;
     bar.style.width = '0%';
-    setTimeout(() => { bar.style.width = w; }, 100 + i * 80);
+    setTimeout(() => { bar.style.width = w; }, 200 + i * 100);
   });
 
-  // Animate metric values with count-up
+  // ═══ COUNT-UP ANIMATION ═══
   const metrics = document.querySelectorAll('.metric-value');
-  metrics.forEach(el => {
-    const val = parseInt(el.textContent);
-    if (isNaN(val)) return;
-    let current = 0;
-    const step = Math.max(1, Math.ceil(val / 30));
-    const interval = setInterval(() => {
-      current += step;
-      if (current >= val) { current = val; clearInterval(interval); }
-      el.textContent = current;
-    }, 30);
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const text = el.textContent.trim();
+      const val = parseInt(text);
+      if (isNaN(val) || el.dataset.counted) return;
+      el.dataset.counted = 'true';
+      let current = 0;
+      const duration = 800;
+      const start = performance.now();
+      const step = (now) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        current = Math.round(val * eased);
+        el.textContent = current;
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+      observer.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  metrics.forEach(el => observer.observe(el));
+
+  // ═══ LIVE PULSE — topbar status dots ═══
+  const dots = document.querySelectorAll('.status-dot .dot');
+  dots.forEach((dot, i) => {
+    dot.style.animationDelay = `${i * 0.3}s`;
   });
 
-  // Stagger card entrance
-  const cards = document.querySelectorAll('.card');
-  cards.forEach((card, i) => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(16px)';
-    card.style.transition = 'opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)';
-    setTimeout(() => {
-      card.style.opacity = '1';
-      card.style.transform = 'translateY(0)';
-    }, 80 + i * 60);
-  });
 });
 </script>
 </body>
