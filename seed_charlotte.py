@@ -66,6 +66,8 @@ def seed():
         ("Kut Masters - N Tryon", "9605 N Tryon St, Charlotte, NC 28262", "28262", "University City", "(704) 548-1800", None, "Black-owned", "Second Kut Masters location."),
         # ZIP 28273 — South Charlotte
         ("King Hut Cuts Barbershop", "11130 South Tryon St, Suite 209, Charlotte, NC 28273", "28273", "South Tryon", "(704) 906-2570", None, "Black-owned", "Top Yelp Black-owned."),
+        # ZIP 28204 — Dilworth
+        ("Major Barbershop", "650 B E Stonewall St, Charlotte, NC 28204", "28204", "Dilworth", "(704) 778-1187", None, "Black-owned", "Salon Lofts. 28 Yelp reviews. Upscale: neck shave, scalp massage, steam towel, beer. Barbers: Niki, Victoria."),
         # ZIP 28078 — Cornelius
         ("Potts Barber Shop", "Cornelius, NC 28078", "28078", "Cornelius", None, None, "Black-owned", "Est. 1952. Oldest Black-owned business in Cornelius. Historic landmark."),
     ]
@@ -88,7 +90,7 @@ def seed():
         "No Grease": [("Regular Haircut", 40), ("Fade", 45), ("Skin Fade", 50), ("Haircut + Beard Combo", 60), ("Full Service", 75), ("Kids Haircut", 30)],
         "Gordon's Historic": [("Regular Haircut", 35), ("Fade", 40), ("Skin Fade", 45), ("Beard Trim", 20)],
         "Goodfellas": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 38), ("Beard Trim", 15), ("Kids Haircut", 20)],
-        "Man Cave": [("Regular Haircut", 28), ("Fade", 30), ("Skin Fade", 35), ("Kids Haircut", 18), ("Line-Up / Edge-Up", 10)],
+        "Man Cave": [("Regular Haircut", 40), ("Fade", 40), ("Skin Fade", 45), ("Kids Haircut", 25), ("Line-Up / Edge-Up", 15)],
         "Victory Cutz": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Sculpting", 20)],
         "Da Lucky Spot Barbershop": [("Regular Haircut", 25), ("Fade", 30), ("Skin Fade", 35), ("Kids Haircut", 15), ("Beard Trim", 12)],
         "Da Lucky Spot - N Tryon": [("Regular Haircut", 25), ("Fade", 30), ("Skin Fade", 35), ("Kids Haircut", 15)],
@@ -111,6 +113,7 @@ def seed():
         "King Hut": [("Regular Haircut", 28), ("Fade", 32), ("Skin Fade", 38), ("Beard Trim", 15)],
         "Kingdom Cuts": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Sculpting", 20)],
         "Potts": [("Regular Haircut", 18), ("Fade", 22)],
+        "Major Barbershop": [("Regular Haircut", 35), ("Fade", 40), ("Skin Fade", 45), ("Beard Trim", 20)],
         "Headlines": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Trim", 15)],
         "The CUT": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40)],
         "Hawk & Fade": [("Regular Haircut", 32), ("Fade", 37), ("Skin Fade", 42), ("Beard Trim", 18)],
@@ -177,10 +180,81 @@ def seed():
 
     print(f"Loaded {social_count} social records")
 
+    # ── BARBERS (real names from Booksy/Yelp/Google reviews) ─────────────
+    barber_entries = [
+        ("No Grease - Mosaic Village", "Tyler", "Line-ups, professional cuts", "Top-class line-up skills"),
+        ("No Grease - Mosaic Village", "Tre", "All-around, loyal clientele", "Clients drive 2+ hours for him"),
+        ("No Grease - Mosaic Village", "Alicia Pryor", "Women's cuts, chemical services", "No Grease staff"),
+        ("The Man Cave Barbershop Charlotte", "Asa", "Fades, precision cuts", "Never disappoints per reviews"),
+        ("The Man Cave Barbershop Charlotte", "Dray", "Creative styles, consultations", "Master Barber"),
+        ("The Man Cave Barbershop Charlotte", "Reggie", "Fades, all-around", "5.0 rating, 193 Booksy reviews"),
+        ("The Man Cave Barbershop Charlotte", "Juan", "General cuts", "Man Cave staff"),
+        ("Fade Factory Barbershop", "Tara Smith (Miss T)", "Owner, all services", "Owner/operator"),
+        ("Fade Factory Barbershop", "Phil", "Quick fades", "Fast service"),
+        ("Fade Factory Barbershop", "Odell", "Professional cuts", "Very professional and talented"),
+        ("Fade Factory Barbershop", "Val", "Kids cuts specialist", "Great with children"),
+        ("Fade Factory Barbershop", "Walter", "General cuts", "Fade Factory staff"),
+        ("Fade Factory Barbershop", "Nicole", "General cuts", "Fade Factory staff"),
+        ("Goodfellas Barbershop", "Howard", "Fades, lineups", "8-barber team"),
+        ("Goodfellas Barbershop", "Jazz", "Fades, lineups", "8-barber team"),
+        ("Da Lucky Spot Barbershop", "Reese", "General cuts", "Lucky Spot staff"),
+        ("Da Lucky Spot Barbershop", "Ron", "General cuts", "Lucky Spot staff"),
+        ("Da Lucky Spot Barbershop", "Toni", "Women's cuts", "Lucky Spot staff"),
+        ("Major Barbershop", "Niki", "Upscale cuts, neck shave", "Mentioned in 8 reviews"),
+        ("Major Barbershop", "Victoria", "Cuts, shaves", "Major Barbershop staff"),
+    ]
+
+    barber_count = 0
+    for comp_name, bname, specs, notes in barber_entries:
+        if comp_name in shop_ids:
+            bid = con.execute("SELECT nextval('seq_barber')").fetchone()[0]
+            con.execute(
+                "INSERT INTO barbers (barber_id, competitor_id, name, specialties, notes, status) VALUES (?, ?, ?, ?, ?, 'Active')",
+                [bid, shop_ids[comp_name], bname, specs, notes],
+            )
+            barber_count += 1
+
+    print(f"Loaded {barber_count} barber profiles")
+
+    # ── REVIEWS (real quotes from Google/Yelp/Booksy) ────────────────────
+    review_entries = [
+        ("No Grease - Mosaic Village", "Google", 5.0, "All the barbers are knowledgeable and will provide a great experience.", 0.9),
+        ("No Grease - Mosaic Village", "Yelp", 5.0, "From booking the appt to being offered a beverage, the entire visit was a pleasure!", 0.95),
+        ("No Grease - Mosaic Village", "Booksy", 5.0, "One of the best barbershops in Charlotte. Staff is attentive and timely.", 0.9),
+        ("No Grease - Mosaic Village", "Birdeye", 4.8, "Tyler is a cool barber that actually listens. His line-up skills are top class.", 0.85),
+        ("The Man Cave Barbershop Charlotte", "Booksy", 5.0, "Asa is my barber and he never disappoints.", 0.85),
+        ("The Man Cave Barbershop Charlotte", "Yelp", 5.0, "Dray is a Master Barber with talent and creativity.", 0.9),
+        ("The Man Cave Barbershop Charlotte", "Google", 4.5, "Professional but yet fun. Rate for a cut beats anyone else.", 0.8),
+        ("Fade Factory Barbershop", "Yelp", 5.0, "Absolutely the best barbershop. Customer of 5+ years.", 0.95),
+        ("Fade Factory Barbershop", "Yelp", 5.0, "Tara did EXACTLY what I wanted with creative freedom.", 0.95),
+        ("Fade Factory Barbershop", "Google", 5.0, "Best southern hospitality barber shop in the Carolinas.", 0.9),
+        ("Fade Factory Barbershop", "Google", 5.0, "Haircut, scalp massage, facial before wedding. Complimented for glowing skin.", 0.95),
+        ("Goodfellas Barbershop", "Google", 5.0, "Great barbers, great location, great prices, and great service!", 0.9),
+        ("Goodfellas Barbershop", "Birdeye", 4.5, "Always met with a friendly smile and the service is exceptional.", 0.85),
+        ("Da Lucky Spot Barbershop", "Google", 4.5, "Affordable prices, expertise and attention to detail.", 0.8),
+        ("Major Barbershop", "Yelp", 5.0, "A treasure for those who truly desire a PROFESSIONAL Barber.", 0.95),
+        ("Major Barbershop", "Yelp", 5.0, "Best men's haircut, shave, and beard trim in the city!", 0.9),
+        ("Major Barbershop", "Yelp", 5.0, "Niki is the only one I trust. Been getting cut for over 4 years.", 0.85),
+    ]
+
+    review_count = 0
+    for comp_name, platform, rating, text, sentiment in review_entries:
+        if comp_name in shop_ids:
+            rid = con.execute("SELECT nextval('seq_review')").fetchone()[0]
+            con.execute(
+                "INSERT INTO review_snapshots (id, competitor_id, platform, rating, review_text, sentiment_score) VALUES (?, ?, ?, ?, ?, ?)",
+                [rid, shop_ids[comp_name], platform, rating, text, sentiment],
+            )
+            review_count += 1
+
+    print(f"Loaded {review_count} reviews")
+
     # ── SUMMARY ──────────────────────────────────────────────────────────
     total = con.execute("SELECT COUNT(*) FROM competitors").fetchone()[0]
     print(f"\n{'='*60}")
-    print(f"  SEED COMPLETE: {total} competitors, {price_count} prices, {social_count} social")
+    print(f"  SEED COMPLETE")
+    print(f"  {total} competitors | {price_count} prices | {social_count} social")
+    print(f"  {barber_count} barbers | {review_count} reviews")
     print(f"  Database: {DB_PATH}")
     print(f"{'='*60}")
 
