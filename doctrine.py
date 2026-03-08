@@ -378,12 +378,15 @@ def doctrine_audit():
     # Check if mission is defined
     mission_defined = YOUR_SHOP.get("name") != "Your Shop"
 
+    has_retail = YOUR_SHOP.get("revenue_model", {}).get("wholesale_membership", False)
+    has_deposits = YOUR_SHOP.get("deposits", False)
     objectives = [
         ("Price positioning defined", has_prices, True),
         ("Premium service tier", has_premium, True),
         ("Location identified", YOUR_SHOP.get("neighborhood") is not None, False),
         ("Booking platform active", YOUR_SHOP.get("booking_platform") is not None, False),
-        ("Instagram launched", YOUR_SHOP.get("instagram_followers", 0) > 0, False),
+        ("Retail/product revenue stream", has_retail, False),
+        ("Deposit system active", has_deposits, False),
     ]
 
     mission_score = 0
@@ -399,9 +402,9 @@ def doctrine_audit():
         mission_score += 2 if status else 0
         print(f"    {icon} {name}: {'ACTIVE' if status else 'PENDING'}")
 
-    mission_grade, mission_bar = _grade(mission_score, 12)
-    print(f"\n  Mission Score:      {mission_bar}  {mission_grade}  ({mission_score}/12)")
-    scores["core_mission"] = (mission_score, 12)
+    mission_grade, mission_bar = _grade(mission_score, 14)
+    print(f"\n  Mission Score:      {mission_bar}  {mission_grade}  ({mission_score}/14)")
+    scores["core_mission"] = (mission_score, 14)
 
     # ── III. STRATEGIC TRINITY AUDIT ────────────────────────────────
     _header("III. STRATEGIC TRINITY AUDIT — Three Domains")
@@ -659,14 +662,27 @@ def doctrine_audit():
         print("  STATUS: DOCTRINE INITIALIZING")
         print("  Intelligence is being gathered. Focus on the 30-day quick wins.")
 
+    # Current position
+    annual_gross = YOUR_SHOP.get("annual_gross", 0)
+    has_deposits_active = YOUR_SHOP.get("deposits", False)
+    has_wholesale = YOUR_SHOP.get("revenue_model", {}).get("wholesale_membership", False)
+    setup = YOUR_SHOP.get("setup", "Unknown")
+    goal = YOUR_SHOP.get("goal", "Not defined")
+
+    print(f"\n  CURRENT POSITION:")
+    print(f"    Setup:          {setup}")
+    print(f"    Location:       {YOUR_SHOP.get('neighborhood', 'Not set')}")
+    if annual_gross:
+        print(f"    Annual gross:   ${annual_gross:,}")
+        print(f"    Monthly gross:  ~${annual_gross // 12:,}")
+    print(f"    Deposits:       {'ACTIVE' if has_deposits_active else 'NOT SET UP'}")
+    print(f"    Retail/Product: {'WHOLESALE ACCESS' if has_wholesale else 'NO PRODUCT REVENUE'}")
+    print(f"    Goal:           {goal}")
+
     # Critical gaps
     gaps = []
     if YOUR_SHOP.get("name") == "Your Shop":
         gaps.append("Shop not named — update YOUR_SHOP['name'] in strategy.py")
-    if not YOUR_SHOP.get("neighborhood"):
-        gaps.append("No location set — update YOUR_SHOP in strategy.py")
-    if YOUR_SHOP.get("instagram_followers", 0) == 0:
-        gaps.append("Zero Instagram presence — your 10yr reputation needs digital proof")
     if not has_premium:
         gaps.append("No premium tier ($60+) — add Royal Treatment service")
 
@@ -674,6 +690,12 @@ def doctrine_audit():
     os_info = YOUR_SHOP.get("booking_os", {})
     if os_info.get("migrating_from"):
         gaps.append(f"Still on {os_info['migrating_from']} — complete migration to your OS")
+
+    # Revenue gaps
+    if annual_gross and annual_gross < 50000:
+        gaps.append(f"Gross at ${annual_gross:,}/yr — retail product margin can close the gap to $50K+")
+    if setup == "Solo suite":
+        gaps.append("Suite ceiling — no room for chair rentals, limited growth")
 
     if gaps:
         print(f"\n  CRITICAL GAPS:")
@@ -690,7 +712,12 @@ def doctrine_audit():
         print(f"    ◆ {YOUR_SHOP.get('years_experience', 0)} YEARS EXPERIENCE — veteran operator")
     if has_premium:
         print("    ◆ PREMIUM PRICING POSITION — above market average")
+    if has_wholesale:
+        print("    ◆ WHOLESALE PRODUCT ACCESS — 50-70% margins on retail")
+    if has_deposits_active:
+        print("    ◆ DEPOSIT SYSTEM — forward revenue visibility + no-show protection")
     print("    ◆ COMPETITIVE INTELLIGENCE SYSTEM — warehouse + agents + doctrine")
+    print("    ◆ CORE CLIENT BASE — retention phase, not chasing new clients")
 
     print()
 

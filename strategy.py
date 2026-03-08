@@ -26,8 +26,10 @@ from warehouse.db import get_connection
 
 YOUR_SHOP = {
     "name": "Your Shop",
-    "neighborhood": None,  # Set when you pick a location
-    "zip_code": None,
+    "neighborhood": "South Park",
+    "zip_code": "28210",
+    "setup": "Solo suite",  # Suite rental, not a full shop yet
+    "goal": "Transition from suite to full shop",
     "prices": {
         "Regular Haircut": 40,
         "Fade": 45,
@@ -37,10 +39,20 @@ YOUR_SHOP = {
         "Student Haircut": 25,
         "Haircut + Beard Combo": 65,
     },
-    "barbers": 1,
+    "barbers": 1,  # Solo operator
     "years_experience": 10,
+    "annual_gross": 42_000,  # Current gross revenue
+    "monthly_gross": 3_500,  # ~$42K / 12
+    "client_base": "Core customers — retention phase, not acquisition",
+    "deposits": True,  # Taking deposits on future bookings
+    "revenue_model": {
+        "streams": ["Services", "Grooming products (retail)", "Deposits"],
+        "wholesale_membership": True,  # Major producer/wholesaler access
+        "retail_strategy": "Grooming + retail — margin play on product",
+    },
     "instagram_followers": 0,
-    "booking_platform": "Proprietary OS",  # Custom-built booking OS w/ live intelligence
+    "instagram_strategy": "Limited — not building influencer dependence",
+    "booking_platform": "Proprietary OS",
     "booking_os": {
         "type": "proprietary",
         "features": [
@@ -48,8 +60,9 @@ YOUR_SHOP = {
             "Adaptive scheduling from day-to-day patterns",
             "Backed by its own data warehouse",
             "Competitive intelligence integration",
+            "Deposit collection on future bookings",
         ],
-        "migrating_from": "Booksy",  # Transitioning off Booksy
+        "migrating_from": "Booksy",
         "advantage": "No competitor in this market has anything close to this",
     },
     "monthly_rent_budget": None,
@@ -278,7 +291,7 @@ def talent_strategy():
         if s.get("seniority"):
             print(f"      {'':25s} Seniority: {s['seniority']}")
 
-    _move(move_num + 1, "YOUR SIGNATURE IS THE SYSTEM ITSELF",
+    _move(move_num + 1, "YOUR SIGNATURE: GROOMING AUTHORITY + TECH",
           "The market leaders all have a THING:\n"
           "  • No Grease → 'The Royal Treatment' (facials + premium experience)\n"
           "  • Damu Gordon → Celebrity/NFL barber (aspirational brand)\n"
@@ -287,9 +300,12 @@ def talent_strategy():
           "  • Tara (Fade Factory) → Women/kids specialist + bridal\n"
           "  • Marcus C. → 'The Beard Barber' (niche dominance)\n"
           "\n"
-          "YOUR THING: 10 years of craft + a proprietary intelligence system.\n"
-          "You're the barber who built his own tech. That IS the brand.\n"
-          "The barber-technologist. The shop that runs on its own brain.",
+          "YOUR THING: The grooming authority.\n"
+          "  10 years of craft + wholesale product access + proprietary OS.\n"
+          "  You don't just cut hair — you send them home with the right product.\n"
+          "  You don't just book appointments — your system knows what they need.\n"
+          "  The barber who built his own tech AND curates his own product line.\n"
+          "  Service + retail + intelligence. Nobody else in this market has all three.",
           "NOW")
 
 
@@ -371,24 +387,71 @@ def positioning_strategy():
           "NOW")
     move_num += 1
 
-    _move(move_num, "INSTAGRAM: AMPLIFY THE 10-YEAR REPUTATION",
-          "Steve the Barber has 40,000. No Grease has 24,000. Headlines has 17,000.\n"
-          "You have 10 years of work. Every satisfied client is a testimonial.\n"
-          "Post EVERY cut. Before/after. Tag the client (with permission).\n"
-          "Use: #CharlotteBarber #CLTBarber #704Barber #BlackOwnedCLT\n"
-          "Reels of fades get 10x the reach of photos. Post 1 reel/day.\n"
-          "Your booking OS should auto-prompt clients for IG tags post-appointment.",
+    _move(move_num, "GROOMING + RETAIL — YOUR SECOND REVENUE STREAM",
+          "You have wholesale access. Most barbers in this market DON'T.\n"
+          "The shops that sell product are collecting revenue while the chair is empty.\n"
+          "\n"
+          "The math on retail in a suite:\n"
+          "  Wholesale cost on a pomade/oil: ~$4-8\n"
+          "  Retail price: $15-25\n"
+          "  Margin: 50-70%\n"
+          "  10 products/week = $600-1,000/month in PURE margin\n"
+          "  That's $7K-12K/year added to your $42K gross\n"
+          "\n"
+          "Your OS should track:\n"
+          "  • Which products each client buys (auto-reorder prompts)\n"
+          "  • Product revenue vs service revenue (split reporting)\n"
+          "  • Retail margin by product line\n"
+          "  • Inventory alerts from your wholesale account\n"
+          "\n"
+          "Every client in that chair is a retail customer. They trust your hands\n"
+          "on their head — they'll trust what you put in their hands.\n"
+          "Curate 5-8 products max. YOUR picks. Not a shelf of options — a recommendation.",
           "NOW")
     move_num += 1
 
-    _move(move_num, "COLLECT REVIEWS LIKE YOUR RENT DEPENDS ON IT",
-          "Because it does. The top shops run on review volume:\n",
+    _move(move_num, "DEPOSITS ARE CASH FLOW ENGINEERING — EXPAND IT",
+          "You're already taking deposits. Most barbers in this market aren't.\n"
+          "Deposits solve two problems at once:\n"
+          "  1. No-shows cost you $0 instead of $45\n"
+          "  2. Cash flow smooths out — you see revenue BEFORE the cut\n"
+          "\n"
+          "Your OS should track deposit conversion rates.\n"
+          "At $42K/year gross, even 50% deposit coverage gives you $21K in\n"
+          "predictable forward-looking revenue. Banks see that differently\n"
+          "than they see walk-in cash when you're applying for a shop lease.\n"
+          "\n"
+          "Deposits + your OS transaction history = proof of stable income\n"
+          "for a commercial lease application. Build that case NOW.",
+          "NOW")
+    move_num += 1
+
+    _move(move_num, "INSTAGRAM — TOOL, NOT DEPENDENCY",
+          "You're right: IG turned into an influencer game. You're a barber, not a creator.\n"
+          "But you still need a digital storefront. Treat it like a business card, not a career.\n"
+          "\n"
+          "What works without becoming an influencer:\n"
+          "  • Google Business Profile > Instagram for local discovery\n"
+          "  • Your OS booking link is your funnel, not your IG bio\n"
+          "  • Post 2-3x/week (not daily). Before/after. Let the work speak.\n"
+          "  • Core clients share your work when you tag them — that's organic\n"
+          "  • Use IG as proof-of-work, not a growth engine\n"
+          "\n"
+          "The competitors chasing 40K followers are building on rented land too.\n"
+          "Your OS, your client list, your deposit book — that's OWNED distribution.",
+          "SOON")
+    move_num += 1
+
+    _move(move_num, "REVIEWS — YOUR REAL GROWTH ENGINE (NOT SOCIAL)",
+          "Since you're not going influencer, reviews are how new clients find you.\n"
+          "The top shops run on review volume:\n",
           "NOW")
     for r in reviews:
         print(f"      {r['company_name']:40s}  {r['review_count']} reviews  avg {float(r['avg_rating']):.1f}/5")
-    print(f"\n    Every client who leaves happy = 'Hey can you leave me a review?'")
-    print(f"    QR code on the mirror linking to your Google page.")
-    print(f"    Goal: 50 Google reviews in first 6 months.")
+    print(f"\n    Your core clients are loyal. Ask every one for a Google review.")
+    print(f"    QR code in the suite. Text link after appointment from your OS.")
+    print(f"    In South Park, Google reviews matter more than IG followers.")
+    print(f"    Goal: 50 Google reviews. That's your SEO. That's your storefront.")
     move_num += 1
 
     _move(move_num, "COMMUNITY OVER MARKETING",
@@ -480,38 +543,75 @@ def expansion_strategy():
     for o in opps[:8]:
         print(f"    ★ {o['neighborhood']} ({o['zip_code']}): {o['shops']} shop(s), avg fade ${float(o['avg_fade']):.0f}")
 
-    _move(move_num, "TARGET THESE UNDERSERVED PREMIUM AREAS",
-          "South End (28203): 1 shop (Hawk & Fade at $37 fades). Young professionals.\n"
-          "Plaza Midwood (28205): 1 shop (Charlotte Barber & Beard at $40+ fades). Gentrifying.\n"
-          "Ballantyne (28270): 1 shop (All Cutz Matter). Suburban money, few options.\n"
-          "Independence Blvd (28212): 2 shops but high prices ($35-45). Underserved.\n"
+    # Check for South Park intel
+    south_park_shops = _q("""
+        SELECT company_name, neighborhood, zip_code
+        FROM competitors
+        WHERE neighborhood ILIKE '%south%park%'
+           OR neighborhood ILIKE '%southpark%'
+           OR zip_code = '28210'
+        ORDER BY company_name
+    """)
+
+    _move(move_num, "YOU'RE ALREADY IN SOUTH PARK — MAP YOUR BACKYARD",
+          f"You're in a suite in South Park (28210). That's premium territory.\n"
+          f"South Park shops in our intel: {len(south_park_shops)}\n"
           "\n"
-          "These areas have FEW Black-owned shops but HIGH willingness to pay.\n"
-          "The rent is higher but so are the margins.",
+          "Before you leave, know what you're leaving and where you're going:\n"
+          "  • How many clients are South Park locals vs driving in?\n"
+          "  • If you move, do they follow? (Your OS should tell you this)\n"
+          "  • South Park rent is HIGH — is the client density worth it?\n"
+          "\n"
+          "Your shop doesn't have to be in South Park. Your SUITE is in South Park.\n"
+          "When you open a shop, optimize for: your clients' drive radius,\n"
+          "lease affordability, and room for 2-3 chairs.",
+          "NOW")
+    move_num += 1
+
+    _move(move_num, "TARGET LOCATIONS FOR YOUR SHOP",
+          "South End (28203): Young professionals, 1 shop. Higher rent but foot traffic.\n"
+          "Plaza Midwood (28205): 1 shop, gentrifying, $40+ fades. Community feel.\n"
+          "Ballantyne (28270): Suburban money, 1 shop. Your South Park clients might follow.\n"
+          "NoDa (28206): Art district, growing. Could be underserved for premium.\n"
+          "\n"
+          "KEY QUESTION: Where do your CORE CLIENTS live/work?\n"
+          "Your OS has their booking patterns. Plot their zip codes.\n"
+          "Open the shop where THEY already are, not where you think is trendy.\n"
+          "\n"
+          "Suite rent vs shop rent math:\n"
+          "  Suite: ~$250-400/week (just you, no growth ceiling is the ceiling)\n"
+          "  Shop: ~$2,000-4,000/month BUT chair rentals offset it\n"
+          "  2 chairs at $250/wk = $2,000/month — that covers most leases",
           "SOON")
     move_num += 1
 
-    _move(move_num, "LEARN FROM NO GREASE'S FRANCHISE PLAYBOOK",
+    _move(move_num, "STUDY NO GREASE'S MODEL — BUT DON'T COPY IT",
           "No Grease franchise: $132K-$278K investment. $200K net worth requirement.\n"
-          "You're not buying a franchise. But study their model:\n"
-          "  • Mall locations (Northlake, SouthPark, Concord Mills) = foot traffic\n"
-          "  • Premium branding ('Knights of the Razor') for upscale areas\n"
-          "  • Barber school as talent pipeline (3,000+ graduates)\n"
-          "  • Franchisee equity model (Ed Washington: 10% to lead barbers)\n"
+          "You're not buying a franchise. You're building your own.\n"
+          "But study what works:\n"
+          "  • Mall-adjacent locations = foot traffic (SouthPark, Northlake)\n"
+          "  • Premium branding ('Knights of the Razor') justifies price\n"
+          "  • Barber school pipeline = never short on talent\n"
           "\n"
-          "What you CAN do now: pop-up in a mall kiosk on weekends.\n"
-          "Test demand before committing to a lease.",
+          "What you have that they DON'T:\n"
+          "  • Proprietary OS (they rent from Booksy)\n"
+          "  • Wholesale product margin (most barbers buy retail)\n"
+          "  • 10 years of client relationships + deposit book\n"
+          "  • Lower overhead target (you don't need $278K to start)",
           "LATER")
     move_num += 1
 
-    _move(move_num, "THE WALMART PLAY — STUDY DA LUCKY SPOT",
+    _move(move_num, "NON-TRADITIONAL LOCATIONS — THE SHAUN CORBETT LESSON",
           "Shaun Corbett put a barbershop inside Walmart. Now has 5 locations.\n"
           "Walmart gave him a $25,000 check at the grand opening.\n"
-          "He went from ex-felon to multi-location operator.\n"
           "\n"
           "The lesson isn't 'go to Walmart.' The lesson is: go where your\n"
           "clients already ARE. Grocery stores. Gyms. Car washes.\n"
-          "Non-traditional locations = zero competition + built-in foot traffic.",
+          "Non-traditional locations = zero competition + built-in foot traffic.\n"
+          "\n"
+          "For you: could your shop be INSIDE a men's clothing store?\n"
+          "A gym? An office building? Your grooming+retail model fits perfectly\n"
+          "in a space that already sells lifestyle.",
           "LATER")
 
 
@@ -621,81 +721,89 @@ def threat_assessment():
 
 def quick_wins():
     _header("QUICK WINS — Your 30-60-90 Day Playbook")
+    _header("CURRENT POSITION: Solo suite in South Park | $42K/yr gross | Core clients | Deposits active")
 
     print("""
-  ┌──────────────────────────────────────────────────────────────────┐
-  │  DAYS 1-30: TRANSITION & DEPLOYMENT                             │
-  ├──────────────────────────────────────────────────────────────────┤
-  │                                                                  │
-  │  □ Migrate Booksy client list into your booking OS               │
-  │  □ Run Booksy + your OS in parallel (catch stragglers)           │
-  │  □ Direct-message every Booksy client your new booking link      │
-  │  □ Your fade is $45 — ABOVE market avg. Own the premium.        │
-  │  □ Add a $75+ 'Royal Treatment' tier in your OS                  │
-  │  □ Integrate review prompts into your OS post-appointment flow   │
-  │  □ Connect your OS analytics to this competitive warehouse       │
-  │                                                                  │
-  ├──────────────────────────────────────────────────────────────────┤
-  │  DAYS 31-60: KILL BOOKSY, OWN YOUR DATA                        │
-  ├──────────────────────────────────────────────────────────────────┤
-  │                                                                  │
-  │  □ Shut down Booksy. 100% of bookings through YOUR OS.          │
-  │  □ 25+ Google reviews. Respond to every single one.              │
-  │  □ Leverage 10yr reputation — Instagram reels of your best work  │
-  │  □ Your OS should surface: peak hours, no-show patterns, upsells │
-  │  □ Launch 1 community initiative (free cuts for interviews).     │
-  │  □ Run competitive intel agents weekly — price/move tracking     │
-  │  □ Visit No Grease Barber School — recruit talent pipeline       │
-  │                                                                  │
-  ├──────────────────────────────────────────────────────────────────┤
-  │  DAYS 61-90: SCALE THE ADVANTAGE                                │
-  ├──────────────────────────────────────────────────────────────────┤
-  │                                                                  │
-  │  □ 50+ Google reviews. OS generating client retention insights   │
-  │  □ First chair rental barber onboarded — give them OS access     │
-  │  □ Premium service generating 20%+ of revenue.                   │
-  │  □ Your OS is now your moat: no competitor can replicate this    │
-  │  □ Cross-reference OS transaction data with competitive intel    │
-  │  □ Evaluate: licensing your OS to other independent barbers?     │
-  │  □ Run full agent pipeline — refresh all competitive data        │
-  │                                                                  │
-  └──────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  DAYS 1-30: STACK YOUR REVENUE (Suite → Shop Fund)                  │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │                                                                      │
+  │  □ Curate 5-8 retail products from your wholesale account            │
+  │  □ Calculate margin on each (target 50-70% markup)                   │
+  │  □ Add retail catalog to your booking OS (track per-client)          │
+  │  □ Every chair appointment = product recommendation moment           │
+  │  □ Migrate Booksy clients → your OS. Run parallel 30 days.          │
+  │  □ Set deposit policy in OS: 50% of bookings require deposit         │
+  │  □ Google Business Profile — get first 10 reviews from core clients  │
+  │                                                                      │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  DAYS 31-60: BUILD THE LEASE CASE                                   │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │                                                                      │
+  │  □ Kill Booksy. 100% bookings through YOUR OS.                       │
+  │  □ Retail generating $500-1,000/month (proof of second stream)       │
+  │  □ OS reports: avg ticket, retention rate, deposit coverage          │
+  │  □ 25+ Google reviews (South Park local SEO)                         │
+  │  □ Run competitive intel on South Park / SouthPark Mall area         │
+  │  □ Research lease costs: South End, Plaza Midwood, NoDa              │
+  │  □ Build financial package: 12mo P&L, OS data, deposit book          │
+  │                                                                      │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │  DAYS 61-90: POSITION FOR THE MOVE                                  │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │                                                                      │
+  │  □ Services + retail combined = path to $60K+ annual gross           │
+  │  □ 50+ Google reviews — your reputation is searchable proof          │
+  │  □ OS generating: retention insights, product attach rates           │
+  │  □ Identify 2-3 target shop locations with lease terms               │
+  │  □ Financial model: suite costs vs shop costs vs shop revenue        │
+  │  □ Can you bring 1 chair rental barber from day 1? (offset rent)     │
+  │  □ Deposit book shows X months of forward-booked revenue             │
+  │                                                                      │
+  └──────────────────────────────────────────────────────────────────────┘
 """)
 
-    # Revenue projection
-    _header("REVENUE MATH — What This Looks Like")
+    # Revenue projection — REAL MATH from current position
+    _header("REVENUE MATH — From $42K Suite to Shop")
 
     your_fade = YOUR_SHOP["prices"]["Fade"]
+    combo = YOUR_SHOP["prices"]["Haircut + Beard Combo"]
     premium = 75  # premium Royal Treatment tier
 
+    print(f"\n  YOUR CURRENT REALITY:")
+    print(f"    Annual gross:      $42,000")
+    print(f"    Monthly gross:     ~$3,500")
+    current_daily = 42000 / 52 / 5  # assuming 5 days
+    print(f"    Daily avg:         ~${current_daily:,.0f}/day (5-day week)")
+    implied_cuts = current_daily / your_fade
+    print(f"    Implied cuts/day:  ~{implied_cuts:.1f} at ${your_fade}/cut")
+
+    print(f"\n  {'Scenario':55s} {'Monthly':>10s} {'Annual':>10s}")
+    print(f"  {'─'*78}")
+
     scenarios = [
-        ("Solo — 8 cuts/day, 5 days", 8, 5, your_fade, 0, 0),
-        ("Solo — 10 cuts/day, 6 days", 10, 6, your_fade, 0, 0),
-        ("Solo — 10 cuts/day + 2 premium/day", 10, 6, your_fade, 2, premium),
-        ("+ 1 chair rental ($250/wk)", 10, 6, your_fade, 2, premium),
-        ("+ 2 chair rentals ($250/wk ea)", 10, 6, your_fade, 2, premium),
+        ("TODAY: Services only (suite)", 3500, 42000),
+        ("+ Retail ($600/mo margin from wholesale)", 4100, 49200),
+        ("+ Retail ($1,000/mo margin)", 4500, 54000),
+        ("+ Premium tier (2 Royal Treatments/wk @ $75)", 5100, 61200),
+        ("SHOP: Above + 1 chair rental ($250/wk)", 6183, 74200),
+        ("SHOP: Above + 2 chair rentals ($250/wk)", 7267, 87200),
+        ("SHOP: Above + 3 chair rentals", 8350, 100200),
     ]
 
-    print(f"\n  {'Scenario':50s} {'Weekly':>10s} {'Monthly':>10s} {'Annual':>10s}")
-    print(f"  {'─'*82}")
+    for name, monthly, annual in scenarios:
+        marker = " ◄── YOU ARE HERE" if "TODAY" in name else ""
+        marker = " ◄── SHOP THRESHOLD" if "1 chair rental" in name else marker
+        print(f"  {name:55s} ${monthly:>8,d}  ${annual:>8,d}{marker}")
 
-    for name, cuts, days, price, prem_cuts, prem_price in scenarios:
-        weekly = (cuts * price * days) + (prem_cuts * prem_price * days)
-        if "1 chair" in name:
-            weekly += 250
-        elif "2 chair" in name:
-            weekly += 500
-        monthly = weekly * 4.33
-        annual = monthly * 12
-        print(f"  {name:50s} ${weekly:>8,.0f}  ${monthly:>8,.0f}  ${annual:>8,.0f}")
-
-    print(f"\n  At YOUR fade price (${your_fade}) with premium upsells:")
-    base_weekly = 10 * your_fade * 6
-    prem_weekly = 2 * premium * 6
-    rent_weekly = 500
-    total = base_weekly + prem_weekly + rent_weekly
-    print(f"    Cuts: ${base_weekly:,}/wk + Premium: ${prem_weekly:,}/wk + 2 Chairs: ${rent_weekly}/wk")
-    print(f"    = ${total:,}/week = ${total * 4.33:,.0f}/month = ${total * 52:,}/year")
+    print(f"\n  THE GAP TO CLOSE:")
+    print(f"    Current:    $42,000/year (services only, suite)")
+    print(f"    With retail: ~$50-54K/year (services + product margin)")
+    print(f"    Shop break-even depends on lease, but retail + chair rentals")
+    print(f"    can cover the difference between suite rent and shop rent.")
+    print(f"")
+    print(f"    Your deposit book is forward revenue proof for a landlord.")
+    print(f"    Your OS transaction data is your financial credibility.")
 
 
 # ════════════════════════════════════════════════════════════════════════
