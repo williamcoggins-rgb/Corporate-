@@ -32,24 +32,26 @@ class PriceWarAlert(BaseAgent):
 
         for service, your_price in self.your_prices.items():
             rows = con.execute("""
-                SELECT c.company_name, c.competitor_id, ph.price, ph.service_name
-                FROM price_history ph
-                JOIN competitors c ON c.competitor_id = ph.competitor_id
-                WHERE ph.service_name ILIKE ?
-                QUALIFY ROW_NUMBER() OVER (
-                    PARTITION BY ph.competitor_id ORDER BY ph.recorded_at DESC
-                ) = 1
-                HAVING ph.price < ?
+                SELECT company_name, competitor_id, price, service_name FROM (
+                    SELECT c.company_name, c.competitor_id, ph.price, ph.service_name,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY ph.competitor_id ORDER BY ph.recorded_at DESC
+                           ) as rn
+                    FROM price_history ph
+                    JOIN competitors c ON c.competitor_id = ph.competitor_id
+                    WHERE ph.service_name ILIKE ?
+                ) WHERE rn = 1 AND price < ?
             """, [f"%{service}%", your_price]).fetchall()
 
             for row in rows:
-                diff = your_price - row[2]
+                their_price = float(row[2])
+                diff = your_price - their_price
                 pct = (diff / your_price) * 100
                 undercut = {
                     "competitor": row[0],
                     "competitor_id": row[1],
                     "service": row[3],
-                    "their_price": float(row[2]),
+                    "their_price": their_price,
                     "your_price": float(your_price),
                     "difference": float(diff),
                     "pct_lower": round(pct, 1),
@@ -59,7 +61,7 @@ class PriceWarAlert(BaseAgent):
                 severity = "critical" if pct > 20 else ("warning" if pct > 10 else "info")
                 self.create_alert(
                     alert_type="price_war",
-                    title=f"{row[0]} undercuts your {service}: ${row[2]:.2f} vs ${your_price:.2f} ({pct:.0f}% less)",
+                    title=f"{row[0]} undercuts your {service}: ${their_price:.2f} vs ${your_price:.2f} ({pct:.0f}% less)",
                     detail=f"Consider: bundle deals, loyalty pricing, or value-add services to compete",
                     severity=severity,
                     competitor_id=row[1],

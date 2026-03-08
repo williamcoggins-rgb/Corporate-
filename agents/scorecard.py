@@ -178,18 +178,23 @@ class Scorecard(BaseAgent):
         """Average price for a service across neighborhoods."""
         con = get_connection()
         rows = con.execute("""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+                WHERE ph.service_name ILIKE ?
+            )
             SELECT c.hq_location as area,
                    COUNT(DISTINCT c.competitor_id) as shops,
-                   ROUND(AVG(ph.price), 2) as avg_price,
-                   ROUND(MIN(ph.price), 2) as min_price,
-                   ROUND(MAX(ph.price), 2) as max_price
-            FROM price_history ph
-            JOIN competitors c ON c.competitor_id = ph.competitor_id
-            WHERE ph.service_name ILIKE ?
-            QUALIFY ROW_NUMBER() OVER (
-                PARTITION BY ph.competitor_id, ph.service_name
-                ORDER BY ph.recorded_at DESC
-            ) = 1
+                   ROUND(AVG(lp.price), 2) as avg_price,
+                   ROUND(MIN(lp.price), 2) as min_price,
+                   ROUND(MAX(lp.price), 2) as max_price
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1
             GROUP BY c.hq_location
             ORDER BY avg_price ASC
         """, [f"%{service_name}%"]).fetchall()

@@ -187,7 +187,7 @@ class DeltaSpotter(BaseAgent):
             ORDER BY snapshot_date DESC LIMIT 1
         """, [competitor_id]).fetchone()
         if social_row and social_row[0]:
-            score += min(2, social_row[0] / 2)  # max 2 pts for engagement
+            score += min(2, float(social_row[0]) / 2)  # max 2 pts for engagement
 
         # Recent strategic moves
         move_count = con.execute("""
@@ -199,14 +199,17 @@ class DeltaSpotter(BaseAgent):
 
         # Price competitiveness (lower = more threatening)
         price_row = con.execute("""
-            SELECT AVG(price) FROM price_history
-            WHERE competitor_id = ?
-              AND service_name ILIKE '%fade%'
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY service_name ORDER BY recorded_at DESC) = 1
+            SELECT AVG(price) FROM (
+                SELECT price,
+                       ROW_NUMBER() OVER (PARTITION BY service_name ORDER BY recorded_at DESC) as rn
+                FROM price_history
+                WHERE competitor_id = ?
+                  AND service_name ILIKE '%fade%'
+            ) WHERE rn = 1
         """, [competitor_id]).fetchone()
-        if price_row and price_row[0] and price_row[0] < 35:
+        if price_row and price_row[0] and float(price_row[0]) < 35:
             score += 2  # aggressive pricing
-        elif price_row and price_row[0] and price_row[0] < 45:
+        elif price_row and price_row[0] and float(price_row[0]) < 45:
             score += 1
 
         # Barber talent
@@ -224,10 +227,10 @@ class DeltaSpotter(BaseAgent):
             """INSERT INTO competitor_scores (id, competitor_id, score_type, score, components)
                VALUES (?, ?, 'threat_level', ?, ?)""",
             [sid, competitor_id, final_score, json.dumps({
-                "rating_component": round(min(3, (rating_row[0] - 3) * 1.5), 1) if rating_row and rating_row[0] else 0,
-                "social_component": round(min(2, social_row[0] / 2), 1) if social_row and social_row[0] else 0,
+                "rating_component": round(float(min(3, (rating_row[0] - 3) * 1.5)), 1) if rating_row and rating_row[0] else 0,
+                "social_component": round(float(min(2, float(social_row[0]) / 2)), 1) if social_row and social_row[0] else 0,
                 "activity_component": round(min(2, move_count * 0.5), 1),
-                "price_component": 2 if price_row and price_row[0] and price_row[0] < 35 else (1 if price_row and price_row[0] and price_row[0] < 45 else 0),
+                "price_component": 2 if price_row and price_row[0] and float(price_row[0]) < 35 else (1 if price_row and price_row[0] and float(price_row[0]) < 45 else 0),
                 "talent_component": round(min(1, barber_count * 0.2), 1),
             })],
         )
