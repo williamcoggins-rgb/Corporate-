@@ -24,12 +24,13 @@ YOUR_SHOP = {
     "neighborhood": None,  # Set when you pick a location
     "zip_code": None,
     "prices": {
-        "Regular Haircut": 30,
-        "Fade": 30,
-        "Skin Fade": 35,
-        "Beard Trim": 15,
-        "Kids Haircut": 20,
-        "Haircut + Beard Combo": 45,
+        "Regular Haircut": 40,
+        "Fade": 45,
+        "Skin Fade": 55,
+        "Beard Trim": 20,
+        "Kids Haircut": 25,
+        "Student Haircut": 25,
+        "Haircut + Beard Combo": 65,
     },
     "barbers": 1,  # Just you starting out
     "instagram_followers": 0,
@@ -597,8 +598,8 @@ def quick_wins():
   │  □ Get on Booksy (free basic plan). Upload your best 10 cuts.  │
   │  □ Create Instagram. Post 1 cut/day. Use #CharlotteBarber      │
   │  □ Set up Google Business Profile. Get first 5 reviews.        │
-  │  □ Raise fade to $32 minimum (market average).                 │
-  │  □ Add a premium service ($60+ cut+beard+hot towel combo).     │
+  │  □ Your fade is $45 — ABOVE market avg. Own the premium.       │
+  │  □ Add a $75+ 'Royal Treatment' tier (cut+beard+towel+massage).│
   │  □ Print QR code for reviews — tape it to the mirror.          │
   │  □ Research locations in South End, Plaza Midwood, Ballantyne. │
   │                                                                 │
@@ -633,7 +634,7 @@ def quick_wins():
     _header("REVENUE MATH — What This Looks Like")
 
     your_fade = YOUR_SHOP["prices"]["Fade"]
-    premium = 65  # premium service price
+    premium = 75  # premium Royal Treatment tier
 
     scenarios = [
         ("Solo — 8 cuts/day, 5 days", 8, 5, your_fade, 0, 0),
@@ -656,9 +657,9 @@ def quick_wins():
         annual = monthly * 12
         print(f"  {name:50s} ${weekly:>8,.0f}  ${monthly:>8,.0f}  ${annual:>8,.0f}")
 
-    print(f"\n  At market-avg fade (${33.95:.0f}) with premium upsells:")
-    base_weekly = 10 * 34 * 6
-    prem_weekly = 2 * 65 * 6
+    print(f"\n  At YOUR fade price (${your_fade}) with premium upsells:")
+    base_weekly = 10 * your_fade * 6
+    prem_weekly = 2 * premium * 6
     rent_weekly = 500
     total = base_weekly + prem_weekly + rent_weekly
     print(f"    Cuts: ${base_weekly:,}/wk + Premium: ${prem_weekly:,}/wk + 2 Chairs: ${rent_weekly}/wk")
