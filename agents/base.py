@@ -15,7 +15,7 @@ class BaseAgent:
     description = "Base agent — override in subclass"
     tier = 0  # 1=Scout, 2=Transform, 3=Analytics, 4=Alert
 
-    def __init__(self, dry_run=False):
+    def __init__(self, dry_run=False, **kwargs):
         self.dry_run = dry_run
         self.run_id = None
         self.records_processed = 0

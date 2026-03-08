@@ -10,17 +10,19 @@ def _rows_to_dicts(cursor):
 
 
 def add_competitor(company_name, industry=None, website=None, hq_location=None,
-                   founded_year=None, employee_count=None, annual_revenue=None,
-                   business_model=None, notes=None):
+                   zip_code=None, neighborhood=None, ownership_type=None,
+                   primary_clientele=None, founded_year=None, employee_count=None,
+                   annual_revenue=None, business_model=None, notes=None):
     """Add a new competitor to the warehouse. Returns the new competitor_id."""
     con = get_connection()
     cid = con.execute("SELECT nextval('seq_competitor')").fetchone()[0]
     con.execute("""
         INSERT INTO competitors (competitor_id, company_name, industry, website,
-            hq_location, founded_year, employee_count, annual_revenue,
-            business_model, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, [cid, company_name, industry, website, hq_location, founded_year,
+            hq_location, zip_code, neighborhood, ownership_type, primary_clientele,
+            founded_year, employee_count, annual_revenue, business_model, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [cid, company_name, industry, website, hq_location, zip_code,
+          neighborhood, ownership_type, primary_clientele, founded_year,
           employee_count, annual_revenue, business_model, notes])
     con.close()
     print(f"Added competitor: {company_name} (ID: {cid})")
@@ -77,7 +79,8 @@ def update_competitor(competitor_id, **fields):
     """Update fields on an existing competitor."""
     if not fields:
         return
-    allowed = {"company_name", "industry", "website", "hq_location", "founded_year",
+    allowed = {"company_name", "industry", "website", "hq_location", "zip_code",
+               "neighborhood", "ownership_type", "primary_clientele", "founded_year",
                "employee_count", "annual_revenue", "business_model", "status", "notes"}
     fields = {k: v for k, v in fields.items() if k in allowed}
     if not fields:
