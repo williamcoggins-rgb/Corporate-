@@ -807,6 +807,327 @@ def quick_wins():
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  SECTION 7: EXIT PLANNING — Suite-to-Shop Ramp
+# ════════════════════════════════════════════════════════════════════════
+
+def exit_planning():
+    """Interactive exit planning: the ramp from suite to shop."""
+    _header("EXIT PLAN — Suite-to-Shop Transition Ramp")
+
+    # ── Current position snapshot from YOUR_SHOP + warehouse ──────────
+    annual_gross = YOUR_SHOP.get("annual_gross", 42000)
+    monthly_gross = annual_gross / 12
+    your_fade = YOUR_SHOP["prices"]["Fade"]
+    combo = YOUR_SHOP["prices"]["Haircut + Beard Combo"]
+    has_wholesale = YOUR_SHOP.get("revenue_model", {}).get("wholesale_membership", False)
+    has_deposits = YOUR_SHOP.get("deposits", False)
+
+    # Implied operating metrics
+    working_days = 5  # assumption — adjustable
+    working_weeks = 50  # 2 weeks off
+    daily_gross = annual_gross / working_weeks / working_days
+    implied_cuts = daily_gross / your_fade
+
+    print(f"""
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  EXIT PLAN: SUITE → SHOP                                           │
+  │  "Don't jump. Build a bridge."                                     │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  CURRENT POSITION (what we're working with):
+    Setup:             Solo suite, South Park
+    Annual gross:      ${annual_gross:,}
+    Monthly gross:     ${monthly_gross:,.0f}
+    Daily avg:         ${daily_gross:,.0f}/day ({working_days}-day week)
+    Implied cuts/day:  {implied_cuts:.1f} at ${your_fade}/cut
+    Wholesale access:  {'YES' if has_wholesale else 'NO'}
+    Deposits active:   {'YES' if has_deposits else 'NO'}
+    Client base:       Core/loyal (retention phase)
+""")
+
+    # ── PHASE 1: STACK (Months 1-3) ──────────────────────────────────
+    _header("PHASE 1: STACK — Build Revenue Layers Without Leaving (Months 1-3)")
+
+    # Retail margin projections
+    retail_scenarios = [
+        ("Conservative: 3 products/week", 3, 12, 4),
+        ("Moderate: 6 products/week", 6, 15, 6),
+        ("Aggressive: 10 products/week", 10, 18, 8),
+    ]
+
+    print(f"\n  RETAIL PRODUCT MARGIN (from your wholesale account):")
+    print(f"  {'Scenario':45s} {'Weekly':>8s} {'Monthly':>9s} {'Annual':>9s}")
+    print(f"  {'─'*75}")
+    for name, units, avg_retail, avg_cost in retail_scenarios:
+        margin = avg_retail - avg_cost
+        weekly = units * margin
+        monthly = weekly * 4.33
+        annual = monthly * 12
+        print(f"  {name:45s} ${weekly:>6,.0f}  ${monthly:>7,.0f}  ${annual:>7,.0f}")
+
+    print(f"""
+    Your wholesale cost: ~$4-8/unit
+    Your retail price: ~$12-20/unit
+    Every client in that chair is already trusting your hands.
+    "Here's what I used on you today" — that's the close.
+
+  DEPOSIT ACCELERATION:
+    Current:  Taking deposits (amount/coverage unknown)
+    Target:   100% of bookings require deposit within 90 days
+    Why:      Every deposit is PROOF of forward revenue.
+              A landlord sees "$X in deposits for the next 60 days"
+              and that's more real than a business plan.""")
+
+    # Premium service tier
+    premium_price = 75
+    print(f"""
+  PREMIUM SERVICE TIER ('Royal Treatment' or equivalent):
+    Price: ${premium_price}+ (cut + beard + hot towel + product)
+    Target: 2-3 premium clients/week
+    Monthly add: ${premium_price * 2 * 4.33:,.0f} - ${premium_price * 3 * 4.33:,.0f}
+
+  PHASE 1 TARGET — Monthly gross by end of Month 3:
+    Services:  ${monthly_gross:,.0f} (current, hold steady)
+    Retail:    $300-600 (margin, not revenue)
+    Premium:   $650-975
+    ───────────────────────────────
+    Total:     ${monthly_gross + 300 + 650:,.0f} - ${monthly_gross + 600 + 975:,.0f}
+    Annual run rate: ${(monthly_gross + 475) * 12:,.0f} - ${(monthly_gross + 788) * 12:,.0f}
+""")
+
+    # ── PHASE 2: PROVE (Months 4-6) ──────────────────────────────────
+    _header("PHASE 2: PROVE — Build the Financial Case (Months 4-6)")
+
+    print(f"""
+  You're not leaving the suite yet. You're building proof.
+
+  WHAT YOUR OS NEEDS TO GENERATE (your lease application package):
+    □ 6-month P&L statement (services + retail + deposits)
+    □ Client retention rate (how many rebook within 30 days?)
+    □ Average ticket value trend (is it going UP with retail?)
+    □ Deposit coverage ratio (% of bookings with deposits)
+    □ No-show rate (deposits should push this near zero)
+    □ Product attach rate (% of service clients who buy product)
+
+  WHAT A LANDLORD WANTS TO SEE:
+    1. Consistent monthly revenue (your OS proves this)
+    2. Upward trend (retail + premium adds this)
+    3. Forward bookings (your deposit book proves this)
+    4. Low risk of default (10yr track record + core clients)
+
+  FINANCIAL TARGETS FOR LEASE READINESS:
+    Monthly gross:          $4,500+ (services + retail + premium)
+    Annual run rate:        $54,000+
+    Deposit book:           60+ days of forward-booked revenue
+    Emergency fund:         3 months of target shop rent saved
+    Credit/financials:      Clean enough for a commercial lease""")
+
+    # ── PHASE 3: SCOUT (Months 4-8, overlaps with Phase 2) ──────────
+    _header("PHASE 3: SCOUT — Find the Right Space (Months 4-8)")
+
+    # Pull competitor density for target areas
+    target_areas = _q("""
+        SELECT c.neighborhood, c.zip_code,
+               COUNT(DISTINCT c.competitor_id) as shops,
+               ROUND(AVG(ph.price), 2) as avg_fade
+        FROM competitors c
+        LEFT JOIN price_history ph ON ph.competitor_id = c.competitor_id
+            AND ph.service_name = 'Fade'
+        WHERE c.status = 'Active'
+        GROUP BY c.neighborhood, c.zip_code
+        ORDER BY shops ASC, avg_fade DESC
+    """)
+
+    print(f"\n  WHERE YOUR CORE CLIENTS ARE:")
+    print(f"    Your OS has their booking history. Export their zip codes.")
+    print(f"    The shop goes where THEY are, not where you think looks good.")
+    print(f"    If 70% of your clients drive from Ballantyne, the shop is in Ballantyne.")
+    print(f"")
+    print(f"  COMPETITIVE DENSITY BY AREA (from warehouse):")
+    print(f"  {'Neighborhood':25s} {'ZIP':>7s} {'Shops':>6s} {'Avg Fade':>10s} {'Assessment':>20s}")
+    print(f"  {'─'*72}")
+
+    for area in target_areas[:15]:
+        shops = area["shops"]
+        avg = float(area["avg_fade"]) if area["avg_fade"] else 0
+        if shops >= 4:
+            assessment = "SATURATED"
+        elif shops <= 1 and avg >= 35:
+            assessment = "★ OPPORTUNITY"
+        elif shops <= 2:
+            assessment = "OPEN"
+        else:
+            assessment = "MODERATE"
+        hood = area["neighborhood"] or "Unknown"
+        print(f"  {hood:25s} {area['zip_code'] or 'N/A':>7s} {shops:>4d}   "
+              f"{'$'+f'{avg:.0f}' if avg else 'N/A':>9s}   {assessment:>18s}")
+
+    print(f"""
+  SHOP COST MODEL (Charlotte market):
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  Expense                     Suite (now)      Shop (target)     │
+    ├──────────────────────────────────────────────────────────────────┤
+    │  Rent                        $250-400/wk      $2,000-4,000/mo  │
+    │  Utilities                   Included         $200-400/mo      │
+    │  Insurance                   Minimal          $150-300/mo      │
+    │  Supplies                    ~$100/mo         ~$200/mo         │
+    │  Chair rental income         $0               +$1,000-3,000/mo │
+    │  ────────────────────────────────────────────────────────────── │
+    │  NET OVERHEAD INCREASE:      —                $800-2,500/mo    │
+    │  But chair rentals can COVER most/all of the increase.         │
+    └──────────────────────────────────────────────────────────────────┘
+
+  THE KEY QUESTION:
+    What monthly shop rent can you absorb if chair rentals don't fill
+    immediately? Your emergency fund must cover that gap.
+
+  SPACE REQUIREMENTS:
+    □ 2-4 chairs minimum (1 for you + 1-3 rentals)
+    □ Retail display area (your grooming products — this is revenue)
+    □ Waiting area (client experience matters at your price point)
+    □ Parking (your South Park clients expect this)
+    □ Lease terms: negotiate 2-3yr with option to renew
+    □ Build-out: who pays? Negotiate tenant improvement allowance""")
+
+    # ── PHASE 4: BRIDGE (Months 7-10) ────────────────────────────────
+    _header("PHASE 4: BRIDGE — Parallel Operations (Months 7-10)")
+
+    print(f"""
+  THIS IS THE CRITICAL PHASE. You do NOT abandon the suite cold.
+
+  THE OVERLAP STRATEGY:
+    Month 7-8:  Sign lease. Begin build-out if needed.
+                Keep ALL clients in the suite. Keep making money.
+                Start recruiting 1 chair rental barber.
+
+    Month 9:    Soft open the shop.
+                Move YOUR highest-value clients to the new space.
+                Keep the suite for overflow / remaining clients.
+                Chair rental barber starts in the shop.
+
+    Month 10:   Full transition.
+                All clients migrated to shop.
+                Suite lease ends (or month-to-month until clean exit).
+                2nd chair rental barber recruited.
+
+  WHY THE OVERLAP MATTERS:
+    • You never lose income. Not one week of zero revenue.
+    • Clients transition gradually. No shock, no loss.
+    • You can A/B test the shop location with real clients.
+    • If something goes wrong, you still have the suite.
+
+  COST OF THE OVERLAP:
+    ~1-2 months of double rent. Budget ${1200 * 2:,} - ${4000 * 2:,}.
+    That's the price of a safe transition. Worth every dollar.""")
+
+    # ── PHASE 5: ESTABLISH (Months 10-12) ────────────────────────────
+    _header("PHASE 5: ESTABLISH — First 90 Days in the Shop (Months 10-12)")
+
+    print(f"""
+  REVENUE TARGETS (shop operational):
+    Your chair:      ${monthly_gross:,.0f}+ (same clients, same volume)
+    Retail:          $600-1,000/mo (more display space = more sales)
+    Premium tier:    $650-975/mo
+    Chair rental 1:  $1,000/mo ($250/wk)
+    Chair rental 2:  $1,000/mo ($250/wk, by month 11-12)
+    ────────────────────────────────────
+    Monthly target:  ${monthly_gross + 800 + 800 + 1000 + 1000:,.0f}+
+    Annual run rate: ${(monthly_gross + 800 + 800 + 1000 + 1000) * 12:,.0f}+
+
+  FIRST 90 DAYS CHECKLIST:
+    □ All core clients successfully migrated (zero client loss target)
+    □ Chair rental barber #1 generating $250/wk
+    □ Retail display driving higher product attach rate
+    □ Google reviews updated with new address
+    □ OS tracking: shop overhead vs suite overhead (real comparison)
+    □ Recruiting chair rental barber #2
+    □ Community presence: grand opening, local partnerships
+
+  WHAT YOUR OS SHOULD TRACK IN THE SHOP:
+    • Revenue per square foot (are you using the space efficiently?)
+    • Walk-in vs booked ratio (suite had zero walk-ins, shop changes this)
+    • Product sales per client visit (more space = better display = more sales)
+    • Chair utilization rate (empty chair = lost rent revenue)
+    • Client migration: what % of suite clients followed you?""")
+
+    # ── EXIT READINESS SCORECARD ──────────────────────────────────────
+    _header("EXIT READINESS SCORECARD")
+
+    # Calculate current readiness
+    checks = [
+        ("Monthly gross > $4,000", monthly_gross >= 4000),
+        ("Retail revenue stream active", has_wholesale),
+        ("Deposit system active", has_deposits),
+        ("Booking OS operational (off Booksy)", YOUR_SHOP.get("booking_os", {}).get("migrating_from") is None),
+        ("6+ months of P&L data in OS", False),  # Can't verify this yet
+        ("Emergency fund: 3mo shop rent saved", False),  # User must confirm
+        ("Target location identified", False),  # User must confirm
+        ("Client zip code analysis done", False),  # User must confirm
+        ("Chair rental barber #1 identified", False),  # User must confirm
+        ("Lease terms negotiated", False),  # User must confirm
+    ]
+
+    ready = sum(1 for _, ok in checks if ok)
+    total = len(checks)
+    pct = ready / total * 100
+
+    print(f"\n  EXIT READINESS: {ready}/{total} ({pct:.0f}%)")
+    print(f"  {'─'*60}")
+    for name, ok in checks:
+        icon = "■" if ok else "□"
+        print(f"    {icon} {name}")
+
+    if pct >= 80:
+        status = "READY TO EXECUTE"
+        detail = "Start Phase 4 (Bridge). Sign a lease."
+    elif pct >= 50:
+        status = "BUILDING — ON TRACK"
+        detail = "Focus on the unchecked items. You're in Phase 2-3."
+    elif pct >= 30:
+        status = "FOUNDATION PHASE"
+        detail = "Stack revenue layers (Phase 1). Build the proof."
+    else:
+        status = "EARLY STAGE"
+        detail = "Start Phase 1. Retail + deposits + premium tier."
+
+    print(f"\n  STATUS: {status}")
+    print(f"  NEXT:   {detail}")
+
+    # ── TIMELINE SUMMARY ─────────────────────────────────────────────
+    print(f"""
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  THE RAMP — 12-Month Timeline                                      │
+  ├──────────────────────────────────────────────────────────────────────┤
+  │                                                                      │
+  │  Months 1-3   STACK     Add retail + premium + deposits             │
+  │               ░░░░░░░░                                               │
+  │               Suite revenue: $3,500 → $4,500+/mo                    │
+  │                                                                      │
+  │  Months 4-6   PROVE     Build financial case, OS reports            │
+  │                       ░░░░░░░░                                       │
+  │               6-month P&L, deposit book, client analytics           │
+  │                                                                      │
+  │  Months 4-8   SCOUT     Find the right space                       │
+  │                       ░░░░░░░░░░░░                                   │
+  │               Client zip analysis, lease research, density map      │
+  │                                                                      │
+  │  Months 7-10  BRIDGE    Parallel operations                        │
+  │                               ░░░░░░░░░░░░                          │
+  │               Sign lease, soft open, migrate clients gradually      │
+  │                                                                      │
+  │  Months 10-12 ESTABLISH First 90 days in the shop                  │
+  │                                       ░░░░░░░░░░░░                  │
+  │               Full operation, chair rentals, retail expansion       │
+  │                                                                      │
+  │  ──────────────────────────────────────────────────────────────────  │
+  │  RULE: You never leave the suite until the shop can sustain you.   │
+  │  RULE: You never sign a lease until the numbers say you can.       │
+  │  RULE: You overlap. You don't leap.                                │
+  └──────────────────────────────────────────────────────────────────────┘
+""")
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  MAIN
 # ════════════════════════════════════════════════════════════════════════
 
@@ -825,6 +1146,7 @@ SECTIONS = {
     "expansion": expansion_strategy,
     "threats": threat_assessment,
     "quick-wins": quick_wins,
+    "exit-plan": exit_planning,
 }
 
 
