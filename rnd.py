@@ -35,6 +35,7 @@ import json
 from datetime import date
 from warehouse.db import get_connection
 from strategy import YOUR_SHOP, _q
+from rnd_doctrine import RND_DOCTRINE, show_full_doctrine, audit_projects
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -826,29 +827,34 @@ def full_rnd():
     lab_product()
     show_pipeline()
 
-    _header("R&D DOCTRINE")
+    _header("R&D DOCTRINE — Summary")
+    purpose = RND_DOCTRINE["purpose"]["text"].split("\n")[0]
+    final = RND_DOCTRINE["final_statement"]["text"]
     print(f"""
-  The doctrine says: "Organizations that focus only on the present
-  become obsolete. Organizations that focus only on the future
-  collapse before reaching it."
+  {purpose}
 
-  R&D is how you build the future WITHOUT abandoning the present.
+  FIRST PRINCIPLES (§3):
+    1. Value before novelty
+    2. Voice of the customer is a design input
+    3. Front-load learning
+    4. Research is not complete until validated
+    5. Flow beats chaos
+    6. Technology decisions must be explicit and comparative
+    7. Knowledge compounds
 
-  RULES:
-    1. Every project must name which assets it uses.
-       If it doesn't leverage your assets, it's not YOUR R&D.
+  OPERATING RULES:
+    - Every project must name which assets it uses.
+      If it doesn't leverage your assets, it's not YOUR R&D.
+    - Every project must have a hypothesis.
+      "I think X because Y" — not "wouldn't it be cool if."
+    - Every project must have a success metric.
+      If you can't measure it, you can't manage it.
+    - R&D feeds the council. The council feeds decisions.
 
-    2. Every project must have a hypothesis.
-       "I think X because Y" — not "wouldn't it be cool if."
+  FINAL STATEMENT (§14):
+{chr(10).join('    ' + line for line in final.split(chr(10)))}
 
-    3. Every project must have a success metric.
-       If you can't measure it, you can't manage it. (The degree taught you that.)
-
-    4. R&D feeds the council. The council feeds decisions.
-       When a project moves from 'research' to 'complete,' the council
-       evaluates whether to deploy it.
-
-  YOUR COMPETITIVE ADVANTAGE IN R&D:
+  YOUR COMPETITIVE ADVANTAGE:
     Most barbers don't have R&D. They have "ideas."
     You have a structured pipeline with hypothesis testing,
     asset tracking, and revenue projection.
@@ -865,6 +871,8 @@ def full_rnd():
     python rnd.py --lab product          # Product Lab
     python rnd.py --pipeline             # Pipeline status
     python rnd.py --assets               # Asset inventory
+    python rnd.py --doctrine             # Full R&D doctrine (14 sections)
+    python rnd.py --audit                # Audit projects vs. doctrine
 """)
 
 
@@ -908,5 +916,9 @@ if __name__ == "__main__":
         show_pipeline()
     elif "--assets" in args:
         show_assets()
+    elif "--doctrine" in args:
+        show_full_doctrine()
+    elif "--audit" in args:
+        audit_projects()
     else:
         full_rnd()
