@@ -68,6 +68,12 @@ def seed():
         ("King Hut Cuts Barbershop", "11130 South Tryon St, Suite 209, Charlotte, NC 28273", "28273", "South Tryon", "(704) 906-2570", None, "Black-owned", "Top Yelp Black-owned."),
         # ZIP 28204 — Dilworth
         ("Major Barbershop", "650 B E Stonewall St, Charlotte, NC 28204", "28204", "Dilworth", "(704) 778-1187", None, "Black-owned", "Salon Lofts. 28 Yelp reviews. Upscale: neck shave, scalp massage, steam towel, beer. Barbers: Niki, Victoria."),
+        # ZIP 28205 — Plaza Midwood
+        ("Charlotte Barber & Beard", "1200 The Plaza Rd, Ste. B, Charlotte, NC 28205", "28205", "Plaza Midwood", None, None, "Black-owned", "5.0 Squire, 92 reviews. Barbers: Terrance Josey, Marcus C., Sean Anderson."),
+        # ZIP 28212 — Independence Blvd (additional)
+        ("Diamond Image Cutz", "6721 East Independence Blvd, Charlotte, NC 28212", "28212", "Independence Blvd", None, None, "Black-owned", "Squire listing. Regular Cut $45. Barbers: Aleman, Steven."),
+        # ZIP 28270 — Ballantyne
+        ("All Cutz Matter Barbershop", "1810 Galleria Blvd, Suite 305, Charlotte, NC 28270", "28270", "Ballantyne", None, None, "Black-owned", "5.0 Booksy, 171 reviews. Solo operator Angie Thompson. $30-$85."),
         # ZIP 28078 — Cornelius
         ("Potts Barber Shop", "Cornelius, NC 28078", "28078", "Cornelius", None, None, "Black-owned", "Est. 1952. Oldest Black-owned business in Cornelius. Historic landmark."),
     ]
@@ -89,7 +95,7 @@ def seed():
     price_map = {
         "No Grease": [("Regular Haircut", 40), ("Fade", 45), ("Skin Fade", 50), ("Haircut + Beard Combo", 60), ("Full Service", 75), ("Kids Haircut", 30)],
         "Gordon's Historic": [("Regular Haircut", 35), ("Fade", 40), ("Skin Fade", 45), ("Beard Trim", 20)],
-        "Goodfellas": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 38), ("Beard Trim", 15), ("Kids Haircut", 20)],
+        "Goodfellas": [("Regular Haircut", 25), ("Fade", 30), ("Skin Fade", 40), ("Beard Trim", 15), ("Kids Haircut", 20)],
         "Man Cave": [("Regular Haircut", 40), ("Fade", 40), ("Skin Fade", 45), ("Kids Haircut", 25), ("Line-Up / Edge-Up", 15)],
         "Victory Cutz": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Sculpting", 20)],
         "Da Lucky Spot Barbershop": [("Regular Haircut", 25), ("Fade", 30), ("Skin Fade", 35), ("Kids Haircut", 15), ("Beard Trim", 12)],
@@ -114,6 +120,9 @@ def seed():
         "Kingdom Cuts": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Sculpting", 20)],
         "Potts": [("Regular Haircut", 18), ("Fade", 22)],
         "Major Barbershop": [("Regular Haircut", 35), ("Fade", 40), ("Skin Fade", 45), ("Beard Trim", 20)],
+        "Charlotte Barber & Beard": [("Regular Haircut", 40), ("Haircut + Beard Combo", 55), ("Hot Towel Razor Shave", 65), ("Beard Trim", 25), ("Kids Haircut", 30)],
+        "Diamond Image": [("Regular Haircut", 45), ("Haircut + Beard Combo", 60)],
+        "All Cutz Matter": [("Regular Haircut", 30), ("Fade", 35), ("Head Shave", 70)],
         "Headlines": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40), ("Beard Trim", 15)],
         "The CUT": [("Regular Haircut", 30), ("Fade", 35), ("Skin Fade", 40)],
         "Hawk & Fade": [("Regular Haircut", 32), ("Fade", 37), ("Skin Fade", 42), ("Beard Trim", 18)],
@@ -202,6 +211,12 @@ def seed():
         ("Da Lucky Spot Barbershop", "Toni", "Women's cuts", "Lucky Spot staff"),
         ("Major Barbershop", "Niki", "Upscale cuts, neck shave", "Mentioned in 8 reviews"),
         ("Major Barbershop", "Victoria", "Cuts, shaves", "Major Barbershop staff"),
+        ("Gordon's Historic Barbershop", "Mr. Smalls", "Creative cuts, The Mad Scientist", "Known as The Mad Scientist"),
+        ("Gordon's Historic Barbershop", "The Boujie Barber", "Premium cuts, styling", "Gordon's Historic staff"),
+        ("Gordon's Historic Barbershop", "Uncle Pete", "Traditional cuts", "Gordon's Historic staff"),
+        ("Charlotte Barber & Beard", "Terrance Josey", "Haircuts, beard work, hot towel shave", "5.0 rating, 92 Squire reviews"),
+        ("Charlotte Barber & Beard", "Marcus C.", "Haircuts, beard sculpt, dye", "5.0, 18 reviews. $45 haircut"),
+        ("Charlotte Barber & Beard", "Sean Anderson", "General cuts", "Charlotte Barber & Beard staff"),
     ]
 
     barber_count = 0
