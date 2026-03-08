@@ -189,43 +189,74 @@ def seed():
 
     print(f"Loaded {social_count} social records")
 
-    # ── BARBERS (real names from Booksy/Yelp/Google reviews) ─────────────
+    # ── BARBERS (real names from Booksy/Yelp/Google/LinkedIn + Bot 5 enrichment) ──
+    # Format: (shop_name, barber_name, specialties, notes, instagram, seniority)
     barber_entries = [
-        ("No Grease - Mosaic Village", "Tyler", "Line-ups, professional cuts", "Top-class line-up skills"),
-        ("No Grease - Mosaic Village", "Tre", "All-around, loyal clientele", "Clients drive 2+ hours for him"),
-        ("No Grease - Mosaic Village", "Alicia Pryor", "Women's cuts, chemical services", "No Grease staff"),
-        ("The Man Cave Barbershop Charlotte", "Asa", "Fades, precision cuts", "Never disappoints per reviews"),
-        ("The Man Cave Barbershop Charlotte", "Dray", "Creative styles, consultations", "Master Barber"),
-        ("The Man Cave Barbershop Charlotte", "Reggie", "Fades, all-around", "5.0 rating, 193 Booksy reviews"),
-        ("The Man Cave Barbershop Charlotte", "Juan", "General cuts", "Man Cave staff"),
-        ("Fade Factory Barbershop", "Tara Smith (Miss T)", "Owner, all services", "Owner/operator"),
-        ("Fade Factory Barbershop", "Phil", "Quick fades", "Fast service"),
-        ("Fade Factory Barbershop", "Odell", "Professional cuts", "Very professional and talented"),
-        ("Fade Factory Barbershop", "Val", "Kids cuts specialist", "Great with children"),
-        ("Fade Factory Barbershop", "Walter", "General cuts", "Fade Factory staff"),
-        ("Fade Factory Barbershop", "Nicole", "General cuts", "Fade Factory staff"),
-        ("Goodfellas Barbershop", "Howard", "Fades, lineups", "8-barber team"),
-        ("Goodfellas Barbershop", "Jazz", "Fades, lineups", "8-barber team"),
-        ("Da Lucky Spot Barbershop", "Reese", "General cuts", "Lucky Spot staff"),
-        ("Da Lucky Spot Barbershop", "Ron", "General cuts", "Lucky Spot staff"),
-        ("Da Lucky Spot Barbershop", "Toni", "Women's cuts", "Lucky Spot staff"),
-        ("Major Barbershop", "Niki", "Upscale cuts, neck shave", "Mentioned in 8 reviews"),
-        ("Major Barbershop", "Victoria", "Cuts, shaves", "Major Barbershop staff"),
-        ("Gordon's Historic Barbershop", "Mr. Smalls", "Creative cuts, The Mad Scientist", "Known as The Mad Scientist"),
-        ("Gordon's Historic Barbershop", "The Boujie Barber", "Premium cuts, styling", "Gordon's Historic staff"),
-        ("Gordon's Historic Barbershop", "Uncle Pete", "Traditional cuts", "Gordon's Historic staff"),
-        ("Charlotte Barber & Beard", "Terrance Josey", "Haircuts, beard work, hot towel shave", "5.0 rating, 92 Squire reviews"),
-        ("Charlotte Barber & Beard", "Marcus C.", "Haircuts, beard sculpt, dye", "5.0, 18 reviews. $45 haircut"),
-        ("Charlotte Barber & Beard", "Sean Anderson", "General cuts", "Charlotte Barber & Beard staff"),
+        # No Grease — Damian & Jermaine Johnson (founders)
+        ("No Grease - Mosaic Village", "Damian Johnson", "Founder, master barber, franchise operations", "Co-founder w/ brother Jermaine. First Black-owned franchise barbershop in US. 13 locations in 4 states. 2,000+ licensed barbers through No Grease Barber School.", "@nogreasebarbershop", "20+ years"),
+        ("No Grease - Mosaic Village", "Jermaine Johnson", "Founder, master barber, education", "Co-founder. Runs No Grease Barber School. Trained at Gordon's Historic under mentor.", "@nogreasebarbershop", "20+ years"),
+        ("No Grease - Mosaic Village", "Tyler", "Line-ups, professional cuts", "Top-class line-up skills. Consistently praised in reviews.", None, None),
+        ("No Grease - Mosaic Village", "Tre", "All-around, loyal clientele", "Clients drive 2+ hours for him. Cult following.", None, None),
+        ("No Grease - Mosaic Village", "Alicia Pryor", "Women's cuts, chemical services", "No Grease staff", None, None),
+        # Gordon's Historic — celebrity hub
+        ("Gordon's Historic Barbershop", "Damu Gordon", "Celebrity barber, NFL clients, precision fades", "Son of shop owner. Listed on Booksy as 'Celebrity NFL Barber Moo Gordon'. Cuts NFL players. Instagram presence. Gordon's is EST. 1935 — trained the No Grease founders.", "@moo_gordon", "10+ years"),
+        ("Gordon's Historic Barbershop", "Mr. Smalls", "Creative cuts, The Mad Scientist", "Known as 'The Mad Scientist' for creative designs. Longtime Gordon's barber.", None, "10+ years"),
+        ("Gordon's Historic Barbershop", "The Boujie Barber", "Premium cuts, styling", "Gordon's Historic staff. Upscale clientele.", None, None),
+        ("Gordon's Historic Barbershop", "Uncle Pete", "Traditional cuts", "Gordon's Historic staff. Old-school technique.", None, "20+ years"),
+        # Man Cave
+        ("The Man Cave Barbershop Charlotte", "Asa", "Fades, precision cuts", "Never disappoints per reviews. Consistent 5-star Booksy.", None, None),
+        ("The Man Cave Barbershop Charlotte", "Dray", "Creative styles, consultations", "Master Barber. Talent and creativity praised in Yelp reviews.", None, "Master Barber"),
+        ("The Man Cave Barbershop Charlotte", "Reggie", "Fades, all-around", "5.0 rating, 193 Booksy reviews. Walk-in friendly.", None, None),
+        ("The Man Cave Barbershop Charlotte", "Juan", "General cuts", "Man Cave staff", None, None),
+        # Da Lucky Spot — Shaun "Lucky" Corbett
+        ("Da Lucky Spot Barbershop", "Shaun 'Lucky' Corbett", "Owner, master barber, community leader", "Charlottean of the Year 2015. Obama White House recognition. First Black barber Walmart partnership (2020). Opened Da Lucky Spot Academy Dec 2023. Community pillar.", "@daluckyspot", "15+ years"),
+        ("Da Lucky Spot Barbershop", "Reese", "General cuts", "Lucky Spot staff", None, None),
+        ("Da Lucky Spot Barbershop", "Ron", "General cuts", "Lucky Spot staff", None, None),
+        ("Da Lucky Spot Barbershop", "Toni", "Women's cuts", "Lucky Spot staff. One of few female barbers at Lucky Spot.", None, None),
+        # Fade Factory
+        ("Fade Factory Barbershop", "Tara Smith (Miss T)", "Owner, all services, bridal/event", "Owner/operator. 4x award-winning barber. Customer of 5+ years loyalty common.", "@fadefactorybarbershop", "10+ years"),
+        ("Fade Factory Barbershop", "Phil", "Quick fades", "Fast service. Known for speed + precision.", None, None),
+        ("Fade Factory Barbershop", "Odell", "Professional cuts", "Very professional and talented per reviews.", None, None),
+        ("Fade Factory Barbershop", "Val", "Kids cuts specialist", "Great with children. Patient.", None, None),
+        ("Fade Factory Barbershop", "Walter", "General cuts", "Fade Factory staff", None, None),
+        ("Fade Factory Barbershop", "Nicole", "General cuts", "Fade Factory staff", None, None),
+        # Goodfellas
+        ("Goodfellas Barbershop", "Howard", "Fades, lineups", "Part of 8-barber team. Sunset Road location.", None, None),
+        ("Goodfellas Barbershop", "Jazz", "Fades, lineups", "Part of 8-barber team.", None, None),
+        ("Goodfellas Barbershop", "Sidney Drake", "Fades, general cuts", "LinkedIn confirmed Goodfellas barber. Professional profile.", None, None),
+        # Overton's
+        ("Overton's Barber & Styling", "Tait Overton", "Owner, master barber, all services", "20+ year master barber. Engineering graphics degree. 5 employees. Hidden Valley institution.", "@overtonsbarbershop", "20+ years"),
+        # Gillespie
+        ("Gillespie Barber & Stylist", "Richard Gillespie", "Owner, traditional cuts, styling", "Owner. 6 employees. BBB accredited since 2007. Community institution on N Tryon.", None, "20+ years"),
+        ("Gillespie Barber & Stylist", "Kornelius Gillespie", "Co-owner, cuts, styling", "Co-owner with Richard. Family business.", None, "10+ years"),
+        # Charlotte Barber & Beard
+        ("Charlotte Barber & Beard", "Marcus C.", "Owner, beard sculpt, dye, haircuts", "Owner. 'Marcus The Beard Barber'. 10+ years experience. Cash only. 5.0 Squire, 18 reviews. $45 haircut.", "@marcusthebeardbarber", "10+ years"),
+        ("Charlotte Barber & Beard", "Terrance Josey", "Haircuts, beard work, hot towel shave", "5.0 rating, 92 Squire reviews. Most-reviewed barber at the shop.", None, None),
+        ("Charlotte Barber & Beard", "Sean Anderson", "General cuts", "Charlotte Barber & Beard staff", None, None),
+        # Headlines
+        ("Headlines Barbershop", "Steve the Barber", "Owner, precision fades, designs", "4x award-winning. 40K Instagram followers. Featured in People, Essence, NewsOne. 9 barbers on staff.", "@steve_the_barber", "15+ years"),
+        # Major Barbershop
+        ("Major Barbershop", "Niki", "Upscale cuts, neck shave, scalp massage", "Mentioned in 8+ Yelp reviews. Loyal 4+ year clients. Salon Lofts location.", None, None),
+        ("Major Barbershop", "Victoria", "Cuts, shaves", "Major Barbershop staff", None, None),
+        # Kingdom Cuts
+        ("Kingdom Cuts", "Clarence Moore", "Owner, fades, grooming", "Owner. Motto: 'Grooming You For Success'. West Charlotte.", "@kingdomcutsclt", None),
+        # All Cutz Matter
+        ("All Cutz Matter Barbershop", "Angie Thompson", "Solo operator, fades, head shaves, designs", "Solo operator. 5.0 Booksy, 171 reviews. Range $30-$85. Ballantyne area.", None, None),
+        # Hawk & Fade
+        ("Hawk & Fade Barbershop", "Owner (unnamed)", "Fades, beard trims, lineups", "4.9 Booksy, 289 reviews. South End location. Premium positioning.", "@hawkandfade", None),
+        # LNB Tapers
+        ("LNB Tapers Barbershop", "Yusef Spate", "Owner, tapers, fades", "Owner. 5.0 stars. North Tryon.", None, None),
+        # NY 2 QC
+        ("NY 2 QC Kutz", "Owner (unnamed)", "NY-style cuts, fades", "Since 2016. University City. NY transplant style.", "@ny2qckutz", None),
     ]
 
     barber_count = 0
-    for comp_name, bname, specs, notes in barber_entries:
+    for comp_name, bname, specs, notes, instagram, seniority in barber_entries:
         if comp_name in shop_ids:
             bid = con.execute("SELECT nextval('seq_barber')").fetchone()[0]
             con.execute(
-                "INSERT INTO barbers (barber_id, competitor_id, name, specialties, notes, status) VALUES (?, ?, ?, ?, ?, 'Active')",
-                [bid, shop_ids[comp_name], bname, specs, notes],
+                "INSERT INTO barbers (barber_id, competitor_id, name, instagram_handle, specialties, seniority, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')",
+                [bid, shop_ids[comp_name], bname, instagram, specs, seniority, notes],
             )
             barber_count += 1
 
