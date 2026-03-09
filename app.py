@@ -12,6 +12,7 @@ import os
 from flask import Flask, jsonify, render_template_string
 from warehouse.db import get_connection, init_schema
 from strategy import YOUR_SHOP
+from rnd import init_rnd_schema, _seed_assets, _seed_projects
 
 app = Flask(__name__)
 
@@ -35,6 +36,14 @@ def _ensure_db():
         raise
     else:
         con.close()
+
+    # Ensure R&D schema and seed data
+    try:
+        init_rnd_schema()
+        _seed_assets()
+        _seed_projects()
+    except Exception:
+        pass  # R&D is optional
 
 _ensure_db()
 
@@ -161,15 +170,28 @@ def get_dashboard_data():
         ORDER BY created_at DESC LIMIT 6
     """)
 
-    # R&D projects
+    # R&D projects — full data for organized display
     try:
         d["rnd_projects"] = _q("""
-            SELECT project_id, lab, title, status, priority, revenue_potential
+            SELECT project_id, lab, title, description, status, priority,
+                   revenue_potential, hypothesis, assets_used
             FROM rnd_projects
-            ORDER BY priority DESC, project_id ASC
+            ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1
+                     WHEN 'medium' THEN 2 ELSE 3 END, project_id ASC
         """)
     except Exception:
         d["rnd_projects"] = []
+
+    # R&D summary stats
+    d["rnd_labs"] = {}
+    for p in d["rnd_projects"]:
+        lab = p.get("lab", "unknown")
+        if lab not in d["rnd_labs"]:
+            d["rnd_labs"][lab] = {"count": 0, "in_progress": 0, "research": 0, "idea": 0}
+        d["rnd_labs"][lab]["count"] += 1
+        st = p.get("status", "idea")
+        if st in d["rnd_labs"][lab]:
+            d["rnd_labs"][lab][st] += 1
 
     # Council vote conditions
     monthly = d["shop"]["monthly_gross"]
@@ -253,6 +275,11 @@ DASHBOARD_HTML = r'''<!DOCTYPE html>
   inherits: false;
   initial-value: 0deg;
 }
+@property --grid-scroll {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
 
 :root {
   --white: #FAFAFA;
@@ -261,30 +288,29 @@ DASHBOARD_HTML = r'''<!DOCTYPE html>
   --teal: #2EC4B6;
   --teal-soft: #5EEADB;
 
-  --bg-base: #08080C;
-  --bg-surface: #0F0F14;
-  --bg-elevated: #16161D;
-  --bg-hover: #1E1E28;
-  --bg-card: rgba(15, 15, 20, 0.7);
+  --bg-base: #030308;
+  --bg-surface: #0A0A12;
+  --bg-elevated: #12121C;
+  --bg-hover: #1A1A26;
+  --bg-card: rgba(10, 10, 18, 0.75);
 
   --text-primary: #FAFAFA;
   --text-secondary: #9CA3AF;
   --text-muted: #5C6370;
 
-  --border-subtle: rgba(250, 250, 250, 0.06);
+  --border-subtle: rgba(250, 250, 250, 0.05);
   --border-glow: rgba(46, 196, 182, 0.15);
 
   --shadow-glow-red: 0 0 30px rgba(230, 57, 70, 0.12);
   --shadow-glow-teal: 0 0 30px rgba(46, 196, 182, 0.12);
 
-  --radius: 24px;
-  --radius-sm: 14px;
+  --radius: 20px;
+  --radius-sm: 12px;
   --radius-xs: 8px;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
-  /* Fluid type scale */
   --text-xs: clamp(0.6875rem, 0.5vw + 0.5rem, 0.75rem);
   --text-sm: clamp(0.8125rem, 0.6vw + 0.6rem, 0.875rem);
   --text-base: clamp(0.875rem, 0.8vw + 0.6rem, 1rem);
@@ -317,58 +343,151 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ANIMATED MESH BACKGROUND
+   4D BACKGROUND — PERSPECTIVE GRID + DEPTH LAYERS
    ═══════════════════════════════════════════════════════════════ */
-.mesh-bg {
+.bg-4d {
   position: fixed;
   inset: 0;
   z-index: 0;
-  overflow: hidden;
   pointer-events: none;
+  perspective: 800px;
+  perspective-origin: 50% 30%;
+  overflow: hidden;
 }
-.mesh-bg .orb {
+
+/* Infinite perspective grid floor */
+.grid-floor {
+  position: absolute;
+  width: 200vw;
+  height: 200vh;
+  left: -50vw;
+  top: 10%;
+  transform: rotateX(65deg) translateZ(0px);
+  transform-style: preserve-3d;
+  background-image:
+    linear-gradient(rgba(46,196,182,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(46,196,182,0.08) 1px, transparent 1px);
+  background-size: 80px 80px;
+  animation: grid-scroll 20s linear infinite;
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 20%, black, transparent);
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 20%, black, transparent);
+}
+@keyframes grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 80px; }
+}
+
+/* Depth orbs — floating at different Z layers */
+.depth-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(80px);
+}
+.depth-orb-1 {
+  width: 40vmax; height: 40vmax;
+  background: radial-gradient(circle, rgba(230,57,70,0.3), transparent 70%);
+  top: -10%; left: -5%;
+  transform: translateZ(-200px);
+  animation: float-z1 25s ease-in-out infinite alternate;
+  opacity: 0.2;
+}
+.depth-orb-2 {
+  width: 35vmax; height: 35vmax;
+  background: radial-gradient(circle, rgba(46,196,182,0.3), transparent 70%);
+  bottom: -15%; right: -5%;
+  transform: translateZ(-400px);
+  animation: float-z2 30s ease-in-out infinite alternate;
   opacity: 0.15;
 }
-.mesh-bg .orb-red {
-  width: 50vmax; height: 50vmax;
-  background: radial-gradient(circle, var(--red), transparent 70%);
-  top: -15%; left: -10%;
-  animation: drift1 20s ease-in-out infinite alternate;
+.depth-orb-3 {
+  width: 20vmax; height: 20vmax;
+  background: radial-gradient(circle, rgba(250,250,250,0.2), transparent 70%);
+  top: 30%; left: 40%;
+  transform: translateZ(-100px);
+  animation: float-z3 18s ease-in-out infinite alternate;
+  opacity: 0.06;
 }
-.mesh-bg .orb-teal {
-  width: 45vmax; height: 45vmax;
-  background: radial-gradient(circle, var(--teal), transparent 70%);
-  bottom: -20%; right: -10%;
-  animation: drift2 24s ease-in-out infinite alternate;
+@keyframes float-z1 {
+  0% { transform: translateZ(-200px) translate(0, 0); }
+  50% { transform: translateZ(-150px) translate(8vw, 5vh); }
+  100% { transform: translateZ(-250px) translate(-5vw, 10vh); }
 }
-.mesh-bg .orb-white {
-  width: 30vmax; height: 30vmax;
-  background: radial-gradient(circle, rgba(250,250,250,0.4), transparent 70%);
-  top: 40%; left: 50%;
-  opacity: 0.04;
-  animation: drift3 18s ease-in-out infinite alternate;
+@keyframes float-z2 {
+  0% { transform: translateZ(-400px) translate(0, 0); }
+  50% { transform: translateZ(-300px) translate(-10vw, -5vh); }
+  100% { transform: translateZ(-350px) translate(5vw, -8vh); }
 }
-@keyframes drift1 { to { transform: translate(25vw, 18vh) scale(1.15); } }
-@keyframes drift2 { to { transform: translate(-20vw, -12vh) scale(0.9); } }
-@keyframes drift3 { to { transform: translate(-15vw, 10vh) scale(1.3); } }
+@keyframes float-z3 {
+  0% { transform: translateZ(-100px) translate(0, 0) scale(1); }
+  100% { transform: translateZ(-50px) translate(-8vw, 6vh) scale(1.3); }
+}
 
-/* ═══════════════════════════════════════════════════════════════
-   GRID NOISE OVERLAY
-   ═══════════════════════════════════════════════════════════════ */
+/* Horizon glow line */
+.horizon-glow {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  top: 38%;
+  left: 0;
+  background: linear-gradient(90deg, transparent, rgba(46,196,182,0.15) 20%, rgba(230,57,70,0.1) 50%, rgba(46,196,182,0.15) 80%, transparent);
+  box-shadow: 0 0 60px 20px rgba(46,196,182,0.04), 0 0 120px 40px rgba(230,57,70,0.02);
+  animation: horizon-pulse 8s ease-in-out infinite;
+}
+@keyframes horizon-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Star particles at various depths */
+.stars {
+  position: absolute;
+  inset: 0;
+}
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 50%;
+  animation: twinkle var(--dur) ease-in-out infinite;
+  opacity: 0;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: var(--brightness); transform: scale(1); }
+}
+
+/* Noise texture overlay */
 .noise-overlay {
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* Scanline effect for that extra dimension */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  animation: scan-drift 0.1s steps(2) infinite;
+}
+@keyframes scan-drift {
+  to { background-position: 0 4px; }
+}
+
 /* ═══════════════════════════════════════════════════════════════
-   LAYOUT — SHELL
+   LAYOUT — SHELL WITH DEPTH
    ═══════════════════════════════════════════════════════════════ */
 .shell {
   position: relative;
@@ -376,6 +495,7 @@ body {
   max-width: 1440px;
   margin: 0 auto;
   padding: 24px 28px 60px;
+  transform-style: preserve-3d;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -567,9 +687,10 @@ body {
 }
 .card:hover {
   border-color: rgba(250,250,250,0.12);
-  background: rgba(15, 15, 20, 0.75);
-  box-shadow: 0 12px 48px rgba(0,0,0,0.35),
-              inset 0 1px 0 rgba(250,250,250,0.06);
+  background: rgba(10, 10, 18, 0.85);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.4),
+              inset 0 1px 0 rgba(250,250,250,0.06),
+              0 0 40px rgba(46,196,182,0.04);
 }
 /* Stripe flashlight hover — radial gradient follows cursor */
 .card .spotlight {
@@ -1076,17 +1197,180 @@ body {
   font-size: 12px;
   font-family: var(--font-mono);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   R&D LAB TABS + CARDS
+   ═══════════════════════════════════════════════════════════════ */
+.lab-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.lab-tab {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: rgba(250,250,250,0.03);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.lab-tab:hover, .lab-tab.active {
+  background: rgba(46,196,182,0.1);
+  border-color: rgba(46,196,182,0.25);
+  color: var(--teal-soft);
+}
+.lab-tab[data-lab="service"] { --lab-color: var(--teal); }
+.lab-tab[data-lab="os"] { --lab-color: #a78bfa; }
+.lab-tab[data-lab="market"] { --lab-color: #FBBF24; }
+.lab-tab[data-lab="business"] { --lab-color: var(--red-soft); }
+.lab-tab[data-lab="product"] { --lab-color: #34D399; }
+.lab-tab.active[data-lab="service"] { background: rgba(46,196,182,0.12); border-color: rgba(46,196,182,0.3); color: var(--teal-soft); }
+.lab-tab.active[data-lab="os"] { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.3); color: #a78bfa; }
+.lab-tab.active[data-lab="market"] { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.3); color: #FBBF24; }
+.lab-tab.active[data-lab="business"] { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.3); color: var(--red-soft); }
+.lab-tab.active[data-lab="product"] { background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.3); color: #34D399; }
+
+.rnd-project {
+  padding: 14px 16px;
+  border-radius: var(--radius-xs);
+  background: rgba(250,250,250,0.02);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.rnd-project:hover {
+  background: rgba(250,250,250,0.04);
+  border-color: rgba(250,250,250,0.1);
+}
+.rnd-project-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.rnd-project-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+.rnd-project-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.rnd-project-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.rnd-tag {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.rnd-revenue {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: #34D399;
+  margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION HEADERS — functional grouping
+   ═══════════════════════════════════════════════════════════════ */
+.section-header {
+  grid-column: span 12;
+  padding: 36px 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.section-num {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--teal);
+  letter-spacing: 2px;
+  opacity: 0.5;
+}
+.section-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-subtle), transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4D CARD TILT
+   ═══════════════════════════════════════════════════════════════ */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUMMARY STAT ROW — compact horizontal stats
+   ═══════════════════════════════════════════════════════════════ */
+.stat-strip {
+  display: flex;
+  gap: 4px;
+}
+.stat-chip {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(250,250,250,0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  text-align: center;
+}
+.stat-chip-value {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
 </style>
 </head>
 <body>
 
-<!-- ANIMATED MESH BACKGROUND -->
-<div class="mesh-bg">
-  <div class="orb orb-red"></div>
-  <div class="orb orb-teal"></div>
-  <div class="orb orb-white"></div>
+<!-- 4D BACKGROUND SYSTEM -->
+<div class="bg-4d">
+  <div class="grid-floor"></div>
+  <div class="depth-orb depth-orb-1"></div>
+  <div class="depth-orb depth-orb-2"></div>
+  <div class="depth-orb depth-orb-3"></div>
+  <div class="horizon-glow"></div>
+  <div class="stars" id="starfield"></div>
 </div>
 <div class="noise-overlay"></div>
+<div class="scanlines"></div>
 
 <!-- DASHBOARD SHELL -->
 <div class="shell">
@@ -1132,10 +1416,12 @@ body {
   <!-- ═══ BENTO GRID ═══ -->
   <div class="bento">
 
-    <!-- ══════════ ROW 1: HERO + COUNCIL ══════════ -->
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 01: COMMAND CENTER
+         ════════════════════════════════════════════════════════ -->
 
     <!-- HERO CARD — Revenue Command -->
-    <div class="card card-glow b-hero">
+    <div class="card card-glow card-3d b-hero">
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Revenue Command</span>
@@ -1144,9 +1430,13 @@ body {
       <div class="stat-row">
         <div class="stat-big white">${{ "{:,.0f}".format(data.shop.monthly_gross) }}</div>
         <div class="stat-unit">/month</div>
+        {% if data.shop.monthly_gross < 4500 %}
         <span class="stat-delta delta-down">TARGET $4,500</span>
+        {% else %}
+        <span class="stat-delta delta-up">ON TARGET</span>
+        {% endif %}
       </div>
-      <div class="stat-sub">${{ "{:,}".format(data.shop.annual_gross) }}/yr gross &middot; {{ data.shop.setup }} &middot; {{ data.shop.neighborhood }}</div>
+      <div class="stat-sub">${{ "{:,}".format(data.shop.annual_gross) }}/yr gross &middot; {{ data.shop.setup }} &middot; {{ data.shop.neighborhood }} &middot; {{ data.shop.years_experience }}yr experience</div>
 
       <div class="metric-grid">
         <div class="metric-cell">
@@ -1158,23 +1448,27 @@ body {
           <div class="metric-label">Franchises</div>
         </div>
         <div class="metric-cell">
-          <div class="metric-value">{{ data.barber_count }}</div>
-          <div class="metric-label">Barber Intel</div>
+          <div class="metric-value">{{ data.independent_count }}</div>
+          <div class="metric-label">Independents</div>
         </div>
         <div class="metric-cell">
-          <div class="metric-value">{{ data.score_count }}</div>
-          <div class="metric-label">Threat Scores</div>
+          <div class="metric-value">{{ data.rnd_projects|length }}</div>
+          <div class="metric-label">R&amp;D Projects</div>
         </div>
       </div>
     </div>
 
     <!-- COUNCIL CARD -->
-    <div class="card card-glow b-side">
+    <div class="card card-glow card-3d b-side">
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">The Council</span>
         {% set yes_votes = data.council.values()|selectattr('ready')|list|length %}
         <span class="card-badge {% if yes_votes >= 3 %}badge-green{% elif yes_votes >= 1 %}badge-yellow{% else %}badge-red{% endif %}">{{ yes_votes }}/5 READY</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        Advisory board vote on readiness to transition from suite to full shop.
+        Need 3/5 to proceed.
       </div>
       <div class="council-grid">
         {% for name, info in data.council.items() %}
@@ -1189,164 +1483,52 @@ body {
       </div>
     </div>
 
-    <!-- ══════════ SECTION: INTELLIGENCE ══════════ -->
-    <div class="section-label">Intelligence Center</div>
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 02: INTELLIGENCE
+         ════════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">Competitive Intelligence</span>
+      <span class="section-line"></span>
+    </div>
 
     <!-- PRICING CARD -->
-    <div class="card card-glow b-wide">
+    <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Service Menu vs Market</span>
+        <span class="card-label">Your Service Menu vs Market</span>
         <span class="card-badge badge-teal">{{ data.prices|length }} SERVICES</span>
       </div>
+      {% set max_price = data.prices.values()|max if data.prices else 80 %}
       {% for name, price in data.prices.items() %}
       <div class="price-row">
         <div class="price-name">{{ name }}</div>
         <div class="price-bar-wrap">
-          <div class="price-bar-fill" style="width: {{ (price / 80 * 100)|int }}%; background: linear-gradient(90deg, var(--teal), {% if price >= 55 %}var(--red){% elif price >= 35 %}var(--teal-soft){% else %}var(--teal){% endif %});"></div>
+          <div class="price-bar-fill" style="width: {{ (price / (max_price * 1.2) * 100)|int }}%; background: linear-gradient(90deg, var(--teal), {% if price >= 55 %}var(--red){% elif price >= 35 %}var(--teal-soft){% else %}var(--teal){% endif %});"></div>
         </div>
         <div class="price-val">${{ price }}</div>
       </div>
       {% endfor %}
       {% if data.avg_fade > 0 %}
-      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
-        <div class="stat-sub">MARKET AVG FADE: ${{ "%.0f"|format(data.avg_fade) }} &middot; MARKET HIGH: ${{ "%.0f"|format(data.max_fade) }} &middot; YOUR FADE: ${{ data.prices.get('Fade', 0) }}</div>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- COMPETITIVE MOVES -->
-    <div class="card card-glow b-wide">
-      <div class="spotlight"></div>
-      <div class="card-header">
-        <span class="card-label">Competitor Moves</span>
-        <span class="card-badge badge-red">LIVE FEED</span>
-      </div>
-      {% if data.recent_moves %}
-        {% for move in data.recent_moves %}
-        <div class="move-row">
-          <div>
-            <span class="move-who">{{ move.company_name }}</span>
-            <span class="move-type">{{ move.move_type }}</span>
-          </div>
-          <div class="move-desc">{{ move.description }}</div>
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; gap: 16px; flex-wrap: wrap;">
+        <div style="font-size: 11px; font-family: var(--font-mono);">
+          <span style="color: var(--text-muted);">MKT AVG FADE</span>
+          <span style="color: var(--white); font-weight: 600; margin-left: 4px;">${{ "%.0f"|format(data.avg_fade) }}</span>
         </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">No moves logged. Deploy agents to start tracking.</div>
-      {% endif %}
-    </div>
-
-    <!-- ══════════ SECTION: OPERATIONS ══════════ -->
-    <div class="section-label">Operations &amp; Systems</div>
-
-    <!-- OS STATUS -->
-    <div class="card card-glow b-third">
-      <div class="spotlight"></div>
-      <div class="card-header">
-        <span class="card-label">Proprietary OS</span>
-        <span class="card-badge {% if data.shop.has_proprietary_os %}badge-green{% else %}badge-red{% endif %}">
-          {% if data.shop.has_proprietary_os %}DEPLOYED{% else %}PENDING{% endif %}
-        </span>
-      </div>
-      {% for feat in data.shop.os_features %}
-      <div class="os-feat">
-        <div class="check">&#10003;</div>
-        <span>{{ feat }}</span>
-      </div>
-      {% endfor %}
-      {% if data.shop.migrating_from %}
-      <div style="margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.15);">
-        <div style="font-size: 10px; font-family: var(--font-mono); color: var(--red-soft); letter-spacing: 1px;">MIGRATING FROM {{ data.shop.migrating_from|upper }}</div>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- AGENT STATUS -->
-    <div class="card card-glow b-third">
-      <div class="spotlight"></div>
-      <div class="card-header">
-        <span class="card-label">Agent Fleet</span>
-        <span class="card-badge badge-teal">13 AGENTS</span>
-      </div>
-      <div class="agent-grid">
-        {% set agents = ['PricingScout', 'ReviewHarvester', 'SocialListener', 'ShopWatcher', 'PlatformScout', 'Normalizer', 'BarberEnricher', 'DeltaSpotter', 'PlatformAnalyzer', 'Scorecard', 'PriceWarAlert', 'ReputationRadar', 'WeeklyDigest'] %}
-        {% for agent in agents[:10] %}
-        <div class="agent-cell">
-          <span class="dot {% if loop.index <= 1 %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
-          <span class="agent-name">{{ agent }}</span>
-          <span class="agent-status" style="{% if loop.index <= 1 %}color: #34D399; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(250,250,250,0.04);{% endif %}">
-            {% if loop.index <= 1 %}LIVE{% else %}BUILT{% endif %}
-          </span>
+        <div style="font-size: 11px; font-family: var(--font-mono);">
+          <span style="color: var(--text-muted);">MKT HIGH</span>
+          <span style="color: var(--red-soft); font-weight: 600; margin-left: 4px;">${{ "%.0f"|format(data.max_fade) }}</span>
         </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- ALERTS -->
-    <div class="card card-glow b-third">
-      <div class="spotlight"></div>
-      <div class="card-header">
-        <span class="card-label">Alert Feed</span>
-        <span class="card-badge badge-yellow">{{ data.alerts|length }} ALERTS</span>
-      </div>
-      {% if data.alerts %}
-        {% for alert in data.alerts %}
-        <div class="alert-row">
-          <div class="alert-icon" style="background: {% if alert.severity == 'critical' %}var(--red){% elif alert.severity == 'warning' %}#FBBF24{% else %}var(--teal){% endif %};
-               box-shadow: 0 0 6px {% if alert.severity == 'critical' %}rgba(230,57,70,0.4){% elif alert.severity == 'warning' %}rgba(251,191,36,0.4){% else %}rgba(46,196,182,0.4){% endif %};"></div>
-          <div>
-            <div class="alert-title">{{ alert.title }}</div>
-            {% if alert.detail %}
-            <div class="alert-detail">{{ alert.detail[:80] }}</div>
-            {% endif %}
-          </div>
+        <div style="font-size: 11px; font-family: var(--font-mono);">
+          <span style="color: var(--text-muted);">YOUR FADE</span>
+          <span style="color: var(--teal-soft); font-weight: 600; margin-left: 4px;">${{ data.prices.get('Fade', 0) }}</span>
         </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">No alerts. All clear.</div>
+      </div>
       {% endif %}
     </div>
 
-    <!-- ══════════ SECTION: R&D ══════════ -->
-    <div class="section-label">R&amp;D Pipeline</div>
-
-    <!-- R&D PROJECTS -->
-    <div class="card card-glow b-hero">
-      <div class="spotlight"></div>
-      <div class="card-header">
-        <span class="card-label">Project Pipeline</span>
-        <span class="card-badge badge-teal">{{ data.rnd_projects|length }} PROJECTS</span>
-      </div>
-      {% if data.rnd_projects %}
-        {% for p in data.rnd_projects[:12] %}
-        <div class="pipeline-row">
-          <div class="pipeline-id">#{{ p.project_id }}</div>
-          <div class="pipeline-title">{{ p.title }}</div>
-          <div class="pipeline-lab">{{ p.lab }}</div>
-          <div class="pipeline-status" style="
-            {% if p.status == 'in_progress' %}background: rgba(46,196,182,0.12); color: var(--teal-soft);
-            {% elif p.status == 'research' %}background: rgba(251,191,36,0.1); color: #FBBF24;
-            {% elif p.status == 'killed' %}background: rgba(230,57,70,0.1); color: var(--red-soft);
-            {% elif p.status == 'complete' %}background: rgba(52,211,153,0.1); color: #34D399;
-            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
-            {% endif %}
-          ">{{ p.status|upper }}</div>
-          <div class="pipeline-status" style="
-            {% if p.priority == 'critical' %}background: rgba(230,57,70,0.12); color: var(--red-soft);
-            {% elif p.priority == 'high' %}background: rgba(251,191,36,0.1); color: #FBBF24;
-            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
-            {% endif %}
-          ">{{ p.priority|upper }}</div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">No R&D projects loaded. Run: python rnd.py --seed</div>
-      {% endif %}
-    </div>
-
-    <!-- TERRITORY MAP -->
-    <div class="card card-glow b-side">
+    <!-- TERRITORY + COMPETITIVE MOVES -->
+    <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Territory Intel</span>
@@ -1358,6 +1540,7 @@ body {
             <th>Neighborhood</th>
             <th>Shops</th>
             <th>Avg Fade</th>
+            <th>Saturation</th>
           </tr>
         </thead>
         <tbody>
@@ -1376,17 +1559,78 @@ body {
               <span style="color: var(--text-muted);">--</span>
               {% endif %}
             </td>
+            <td>
+              <div style="height:4px; border-radius:2px; background:rgba(250,250,250,0.06); min-width:40px;">
+                <div style="height:100%; border-radius:2px; width:{{ (n.shops / 6 * 100)|int }}%; background: linear-gradient(90deg, var(--teal), {% if n.shops >= 4 %}var(--red){% else %}var(--teal-soft){% endif %});"></div>
+              </div>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    <!-- ══════════ SECTION: SOCIAL ══════════ -->
-    <div class="section-label">Social &amp; Brand Intelligence</div>
+    <!-- THREAT BOARD -->
+    <div class="card card-glow card-3d b-wide">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">Threat Board</span>
+        <span class="card-badge badge-red">{{ data.top_threats|length }} TRACKED</span>
+      </div>
+      {% if data.top_threats %}
+      <table class="intel-table">
+        <thead>
+          <tr>
+            <th>Competitor</th>
+            <th>Area</th>
+            <th>Type</th>
+            <th>Threat Level</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in data.top_threats %}
+          <tr>
+            <td style="font-weight: 500;">{{ t.company_name }}</td>
+            <td style="font-size: 11px; color: var(--text-secondary);">{{ t.neighborhood or '--' }}</td>
+            <td><span style="font-family: var(--font-mono); font-size: 10px;">{{ t.ownership_type or '--' }}</span></td>
+            <td>
+              <div class="threat-bar">
+                <div class="threat-fill" style="width: {{ ((t.threat_score or 0) / 10 * 100)|int }}%;"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="empty">No threat scores computed. Run Scorecard agent.</div>
+      {% endif %}
+    </div>
+
+    <!-- COMPETITIVE MOVES + SOCIAL -->
+    <div class="card card-glow card-3d b-wide">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">Competitor Moves</span>
+        <span class="card-badge badge-red">LIVE FEED</span>
+      </div>
+      {% if data.recent_moves %}
+        {% for move in data.recent_moves %}
+        <div class="move-row">
+          <div>
+            <span class="move-who">{{ move.company_name }}</span>
+            <span class="move-type">{{ move.move_type }}</span>
+          </div>
+          <div class="move-desc">{{ move.description|e }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">No moves logged. Deploy agents to start tracking.</div>
+      {% endif %}
+    </div>
 
     <!-- SOCIAL LEADERS -->
-    <div class="card card-glow b-half">
+    <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Social Landscape</span>
@@ -1418,47 +1662,177 @@ body {
       {% endif %}
     </div>
 
-    <!-- THREAT BOARD -->
-    <div class="card card-glow b-half">
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 03: OPERATIONS & SYSTEMS
+         ════════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">Operations &amp; Systems</span>
+      <span class="section-line"></span>
+    </div>
+
+    <!-- OS STATUS -->
+    <div class="card card-glow card-3d b-third">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Threat Board</span>
-        <span class="card-badge badge-red">{{ data.top_threats|length }} TRACKED</span>
+        <span class="card-label">Proprietary OS</span>
+        <span class="card-badge {% if data.shop.has_proprietary_os %}badge-green{% else %}badge-red{% endif %}">
+          {% if data.shop.has_proprietary_os %}DEPLOYED{% else %}PENDING{% endif %}
+        </span>
       </div>
-      {% if data.top_threats %}
-      <table class="intel-table">
-        <thead>
-          <tr>
-            <th>Competitor</th>
-            <th>Area</th>
-            <th>Type</th>
-            <th>Threat</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for t in data.top_threats %}
-          <tr>
-            <td style="font-weight: 500;">{{ t.company_name }}</td>
-            <td style="font-size: 11px; color: var(--text-secondary);">{{ t.neighborhood or '--' }}</td>
-            <td><span style="font-family: var(--font-mono); font-size: 10px;">{{ t.ownership_type or '--' }}</span></td>
-            <td>
-              <div class="threat-bar">
-                <div class="threat-fill" style="width: {{ ((t.threat_score or 0) / 10 * 100)|int }}%;"></div>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-        <div class="empty">No threat scores computed. Run Scorecard agent.</div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+        Custom booking &amp; ops system. Not Booksy. Not Vagaro. Yours.
+      </div>
+      {% for feat in data.shop.os_features %}
+      <div class="os-feat">
+        <div class="check">&#10003;</div>
+        <span>{{ feat }}</span>
+      </div>
+      {% endfor %}
+      {% if data.shop.migrating_from %}
+      <div style="margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.15);">
+        <div style="font-size: 10px; font-family: var(--font-mono); color: var(--red-soft); letter-spacing: 1px;">MIGRATING FROM {{ data.shop.migrating_from|upper }}</div>
+      </div>
       {% endif %}
     </div>
+
+    <!-- AGENT FLEET -->
+    <div class="card card-glow card-3d b-third">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">Agent Fleet</span>
+        <span class="card-badge badge-teal">13 AGENTS</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+        Autonomous intel agents feeding the warehouse.
+      </div>
+      <div class="agent-grid">
+        {% set agents = ['PricingScout', 'ReviewHarvester', 'SocialListener', 'ShopWatcher', 'PlatformScout', 'Normalizer', 'BarberEnricher', 'DeltaSpotter', 'PlatformAnalyzer', 'Scorecard', 'PriceWarAlert', 'ReputationRadar', 'WeeklyDigest'] %}
+        {% for agent in agents %}
+        <div class="agent-cell">
+          <span class="dot {% if loop.index <= 1 %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
+          <span class="agent-name">{{ agent }}</span>
+          <span class="agent-status" style="{% if loop.index <= 1 %}color: #34D399; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(250,250,250,0.04);{% endif %}">
+            {% if loop.index <= 1 %}LIVE{% else %}BUILT{% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="card card-glow card-3d b-third">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">Alert Feed</span>
+        <span class="card-badge badge-yellow">{{ data.alerts|length }} ALERTS</span>
+      </div>
+      {% if data.alerts %}
+        {% for alert in data.alerts %}
+        <div class="alert-row">
+          <div class="alert-icon" style="background: {% if alert.severity == 'critical' %}var(--red){% elif alert.severity == 'warning' %}#FBBF24{% else %}var(--teal){% endif %};
+               box-shadow: 0 0 6px {% if alert.severity == 'critical' %}rgba(230,57,70,0.4){% elif alert.severity == 'warning' %}rgba(251,191,36,0.4){% else %}rgba(46,196,182,0.4){% endif %};"></div>
+          <div>
+            <div class="alert-title">{{ alert.title }}</div>
+            {% if alert.detail %}
+            <div class="alert-detail">{{ alert.detail[:80] }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">No alerts. All clear.</div>
+      {% endif %}
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 04: R&D LABS
+         ════════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">Research &amp; Development</span>
+      <span class="section-line"></span>
+    </div>
+
+    <!-- R&D OVERVIEW STRIP -->
+    <div class="card card-glow card-3d" style="grid-column: span 12; grid-row: span 2;">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">R&amp;D Pipeline Overview</span>
+        <span class="card-badge badge-teal">{{ data.rnd_projects|length }} PROJECTS &middot; 5 LABS</span>
+      </div>
+      <div class="stat-strip">
+        {% set lab_names = {'service': 'Service Lab', 'os': 'OS Lab', 'market': 'Market Lab', 'business': 'Business Lab', 'product': 'Product Lab'} %}
+        {% set lab_colors = {'service': 'var(--teal)', 'os': '#a78bfa', 'market': '#FBBF24', 'business': 'var(--red-soft)', 'product': '#34D399'} %}
+        {% for lab_key, lab_label in lab_names.items() %}
+        <div class="stat-chip">
+          <div class="stat-chip-value" style="color: {{ lab_colors.get(lab_key, 'var(--white)') }};">{{ data.rnd_labs.get(lab_key, {}).get('count', 0) }}</div>
+          <div class="stat-chip-label">{{ lab_label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- R&D PROJECT CARDS BY LAB -->
+    {% set lab_configs = [
+      ('service', 'Service Lab', 'New services, pricing models, bundles. Assets: THE CRAFT + THE DEGREE', 'var(--teal)', 'rgba(46,196,182,0.08)'),
+      ('os', 'OS Lab', 'Proprietary booking OS features, data products, automation. Assets: THE OS + THE AI', '#a78bfa', 'rgba(167,139,250,0.08)'),
+      ('market', 'Market Lab', 'Market research, expansion models, demand analysis. Assets: THE DEGREE + THE AI', '#FBBF24', 'rgba(251,191,36,0.08)'),
+      ('business', 'Business Lab', 'Revenue models, financial instruments, growth plays. Assets: THE DEGREE + THE AI', 'var(--red-soft)', 'rgba(255,107,107,0.08)'),
+      ('product', 'Product Lab', 'Retail product strategy, inventory, brand building. Assets: THE WAREHOUSE + THE CRAFT', '#34D399', 'rgba(52,211,153,0.08)')
+    ] %}
+
+    {% for lab_key, lab_label, lab_desc, lab_color, lab_bg in lab_configs %}
+    {% set lab_projects = data.rnd_projects|selectattr('lab', 'equalto', lab_key)|list %}
+    {% if lab_projects %}
+    <div class="card card-glow card-3d b-wide" style="border-top: 2px solid {{ lab_color }}20;">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label" style="color: {{ lab_color }};">{{ lab_label }}</span>
+        <span class="card-badge" style="background: {{ lab_bg }}; color: {{ lab_color }}; border: 1px solid {{ lab_color }}30;">{{ lab_projects|length }} PROJECTS</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">{{ lab_desc }}</div>
+
+      {% for p in lab_projects %}
+      <div class="rnd-project">
+        <div class="rnd-project-header">
+          <span class="pipeline-id">#{{ p.project_id }}</span>
+          <span class="rnd-project-title">{{ p.title }}</span>
+          <span class="rnd-tag" style="
+            {% if p.status == 'in_progress' %}background: rgba(46,196,182,0.12); color: var(--teal-soft);
+            {% elif p.status == 'research' %}background: rgba(251,191,36,0.1); color: #FBBF24;
+            {% elif p.status == 'complete' %}background: rgba(52,211,153,0.1); color: #34D399;
+            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
+            {% endif %}
+          ">{{ p.status|replace('_', ' ')|upper }}</span>
+          <span class="rnd-tag" style="
+            {% if p.priority == 'critical' %}background: rgba(230,57,70,0.12); color: var(--red-soft);
+            {% elif p.priority == 'high' %}background: rgba(251,191,36,0.1); color: #FBBF24;
+            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
+            {% endif %}
+          ">{{ p.priority|upper }}</span>
+        </div>
+        {% if p.description %}
+        <div class="rnd-project-desc">{{ p.description|e }}</div>
+        {% endif %}
+        <div class="rnd-project-meta">
+          {% if p.hypothesis %}
+          <span style="font-size: 10px; color: var(--text-muted); font-style: italic;">"{{ p.hypothesis|e|truncate(100) }}"</span>
+          {% endif %}
+          {% if p.revenue_potential %}
+          <span class="rnd-revenue">{{ p.revenue_potential }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
 
   </div><!-- /bento -->
 
   <!-- FOOTER -->
-  <div style="text-align: center; padding: 40px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;">
+  <div style="text-align: center; padding: 48px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;">
     CORPORATE HQ &middot; STRATEGIC INTELLIGENCE COMMAND &middot; POWERED BY THE DOCTRINE
   </div>
 
@@ -1468,6 +1842,21 @@ body {
 const DATA = {{ data_json|safe }};
 
 document.addEventListener('DOMContentLoaded', () => {
+
+  // ═══ GENERATE STAR PARTICLES AT VARIOUS DEPTHS ═══
+  const starfield = document.getElementById('starfield');
+  for (let i = 0; i < 60; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.setProperty('--dur', (3 + Math.random() * 6) + 's');
+    star.style.setProperty('--brightness', (0.2 + Math.random() * 0.5).toString());
+    star.style.animationDelay = (Math.random() * 5) + 's';
+    star.style.width = (1 + Math.random() * 2) + 'px';
+    star.style.height = star.style.width;
+    starfield.appendChild(star);
+  }
 
   // ═══ STRIPE FLASHLIGHT — cursor-tracking radial glow ═══
   const cards = document.querySelectorAll('.card');
@@ -1479,11 +1868,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ═══ 3D CARD TILT ON HOVER ═══
+  document.querySelectorAll('.card-3d').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      card.style.transform = `perspective(1000px) rotateY(${x * 4}deg) rotateX(${-y * 4}deg) scale(1.01)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1)';
+    });
+  });
+
   // ═══ STAGGERED CARD ENTRANCE ═══
   cards.forEach((card, i) => {
     card.style.opacity = '0';
-    card.style.transform = 'translateY(16px) scale(0.98)';
-    card.style.transition = `opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${50 + i * 50}ms, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${50 + i * 50}ms`;
+    card.style.transform = 'translateY(20px) scale(0.97)';
+    card.style.transition = `opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${80 + i * 60}ms, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${80 + i * 60}ms`;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         card.style.opacity = '1';
@@ -1515,7 +1917,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const start = performance.now();
       const step = (now) => {
         const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
         current = Math.round(val * eased);
         el.textContent = current;
         if (progress < 1) requestAnimationFrame(step);
@@ -1525,6 +1927,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, { threshold: 0.5 });
   metrics.forEach(el => observer.observe(el));
+
+  // ═══ PARALLAX ON SCROLL — depth orbs move at different rates ═══
+  window.addEventListener('scroll', () => {
+    const sy = window.scrollY;
+    document.querySelectorAll('.depth-orb-1').forEach(el => {
+      el.style.transform = `translateZ(-200px) translateY(${sy * 0.05}px)`;
+    });
+    document.querySelectorAll('.depth-orb-2').forEach(el => {
+      el.style.transform = `translateZ(-400px) translateY(${sy * 0.02}px)`;
+    });
+    document.querySelectorAll('.depth-orb-3').forEach(el => {
+      el.style.transform = `translateZ(-100px) translateY(${sy * 0.08}px)`;
+    });
+  });
 
   // ═══ LIVE PULSE — topbar status dots ═══
   const dots = document.querySelectorAll('.status-dot .dot');
