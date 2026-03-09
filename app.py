@@ -10,10 +10,33 @@ Run:  python app.py
 import json
 import os
 from flask import Flask, jsonify, render_template_string
-from warehouse.db import get_connection
+from warehouse.db import get_connection, init_schema
 from strategy import YOUR_SHOP
 
 app = Flask(__name__)
+
+# Auto-initialize DB + seed data if empty (needed for Railway/fresh deploys)
+def _ensure_db():
+    init_schema()
+    con = get_connection()
+    try:
+        count = con.execute("SELECT COUNT(*) FROM competitors").fetchone()[0]
+        if count == 0:
+            con.close()
+            from seed_charlotte import seed
+            seed()
+            try:
+                from seed_platforms import seed_platforms
+                seed_platforms()
+            except Exception:
+                pass  # Optional seed
+    except Exception:
+        con.close()
+        raise
+    else:
+        con.close()
+
+_ensure_db()
 
 
 # ════════════════════════════════════════════════════════════════════════
