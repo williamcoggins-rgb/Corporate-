@@ -499,44 +499,66 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TOP BAR — ANIMATED BARBER POLE BORDER
+   TOP BAR — POWER HEADER
    ═══════════════════════════════════════════════════════════════ */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 28px;
+  padding: 20px 32px;
   border-radius: var(--radius);
   position: relative;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: linear-gradient(135deg, rgba(10,10,18,0.95), rgba(15,15,24,0.9));
+  border: 1px solid rgba(250,250,250,0.06);
   margin-bottom: 28px;
   overflow: hidden;
+  backdrop-filter: blur(20px);
 }
+
+/* Spinning conic border — barber pole energy ring */
 .topbar::before {
   content: '';
   position: absolute;
   inset: -1px;
   border-radius: var(--radius);
-  padding: 1px;
+  padding: 1.5px;
   background: conic-gradient(from var(--angle), var(--red), var(--teal), var(--white), var(--red));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: spin-border 4s linear infinite;
-  opacity: 0.6;
+  animation: spin-border 3s linear infinite;
+  opacity: 0.8;
+}
+
+/* Inner energy sweep — horizontal power pulse */
+.topbar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(46,196,182,0.06) 30%, rgba(230,57,70,0.04) 50%, rgba(46,196,182,0.06) 70%, transparent);
+  animation: power-sweep 4s ease-in-out infinite;
+  pointer-events: none;
 }
 @keyframes spin-border { to { --angle: 360deg; } }
+@keyframes power-sweep {
+  0% { left: -50%; }
+  100% { left: 100%; }
+}
 
 .topbar-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
+
+/* Logo — pulsing power core */
 .topbar-logo {
-  width: 42px; height: 42px;
-  border-radius: 10px;
+  width: 48px; height: 48px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--red), var(--teal));
   display: flex;
   align-items: center;
@@ -544,23 +566,75 @@ body {
   font-weight: 900;
   font-size: 18px;
   color: var(--white);
-  box-shadow: 0 0 20px rgba(230,57,70,0.2), 0 0 20px rgba(46,196,182,0.2);
+  position: relative;
+  animation: logo-breathe 3s ease-in-out infinite;
+  box-shadow:
+    0 0 20px rgba(230,57,70,0.3),
+    0 0 40px rgba(46,196,182,0.2),
+    inset 0 0 10px rgba(255,255,255,0.1);
 }
+.topbar-logo::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  background: conic-gradient(from var(--angle), var(--red), transparent 40%, var(--teal), transparent 80%, var(--red));
+  animation: spin-border 3s linear infinite;
+  opacity: 0.5;
+  filter: blur(4px);
+  z-index: -1;
+}
+@keyframes logo-breathe {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(230,57,70,0.3), 0 0 40px rgba(46,196,182,0.2), inset 0 0 10px rgba(255,255,255,0.1);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(230,57,70,0.5), 0 0 60px rgba(46,196,182,0.3), inset 0 0 15px rgba(255,255,255,0.15);
+    transform: scale(1.04);
+  }
+}
+
+/* Title — chromatic power text */
 .topbar-title {
-  font-size: var(--text-lg);
-  font-weight: 800;
-  letter-spacing: 3px;
+  font-size: clamp(1.1rem, 1.5vw + 0.5rem, 1.4rem);
+  font-weight: 900;
+  letter-spacing: 5px;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--white) 0%, rgba(250,250,250,0.6) 100%);
+  background: linear-gradient(
+    var(--holo-angle),
+    var(--white) 0%,
+    var(--red-soft) 20%,
+    var(--white) 40%,
+    var(--teal-soft) 60%,
+    var(--white) 80%,
+    var(--red-soft) 100%
+  );
+  background-size: 200% 100%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: title-power 4s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(250,250,250,0.15));
 }
+@keyframes title-power {
+  from { background-position: 200% center; }
+  to { background-position: 0% center; }
+}
+
 .topbar-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  animation: subtitle-flicker 6s ease-in-out infinite;
 }
+@keyframes subtitle-flicker {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; color: var(--teal); }
+}
+
 .topbar-status {
   display: flex;
   align-items: center;
@@ -569,23 +643,49 @@ body {
 .status-dot {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 7px;
+  font-size: 10px;
   font-family: var(--font-mono);
   color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(250,250,250,0.02);
+  border: 1px solid rgba(250,250,250,0.04);
+  transition: all 0.3s;
+}
+.status-dot:hover {
+  background: rgba(250,250,250,0.05);
+  border-color: rgba(250,250,250,0.1);
 }
 .status-dot .dot {
   width: 8px; height: 8px;
   border-radius: 50%;
   animation: pulse-dot 2s ease-in-out infinite;
+  position: relative;
 }
-.dot-green { background: #34D399; box-shadow: 0 0 8px rgba(52,211,153,0.4); }
-.dot-red { background: var(--red); box-shadow: 0 0 8px rgba(230,57,70,0.4); }
-.dot-teal { background: var(--teal); box-shadow: 0 0 8px rgba(46,196,182,0.4); }
-.dot-yellow { background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,0.4); }
+.status-dot .dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.3;
+  filter: blur(4px);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.dot-green { background: #34D399; box-shadow: 0 0 10px rgba(52,211,153,0.5); }
+.dot-red { background: var(--red); box-shadow: 0 0 10px rgba(230,57,70,0.5); }
+.dot-teal { background: var(--teal); box-shadow: 0 0 10px rgba(46,196,182,0.5); }
+.dot-yellow { background: #FBBF24; box-shadow: 0 0 10px rgba(251,191,36,0.5); }
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+@media (max-width: 768px) {
+  .topbar { flex-direction: column; gap: 14px; padding: 16px 20px; }
+  .topbar-status { flex-wrap: wrap; justify-content: center; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1375,13 +1475,13 @@ body {
 <!-- DASHBOARD SHELL -->
 <div class="shell">
 
-  <!-- ═══ TOP BAR ═══ -->
+  <!-- ═══ POWER HEADER ═══ -->
   <div class="topbar">
     <div class="topbar-brand">
       <div class="topbar-logo">HQ</div>
       <div>
         <div class="topbar-title">Corporate HQ</div>
-        <div class="topbar-subtitle">Strategic Intelligence Command</div>
+        <div class="topbar-subtitle">Strategic Intelligence Command Center</div>
       </div>
     </div>
     <div class="topbar-status">
