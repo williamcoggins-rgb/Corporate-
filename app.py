@@ -13,6 +13,7 @@ from flask import Flask, jsonify, render_template_string
 from warehouse.db import get_connection, init_schema
 from strategy import YOUR_SHOP
 from rnd import init_rnd_schema, _seed_assets, _seed_projects
+from skills import init_skills_schema, _seed_skills
 
 app = Flask(__name__)
 
@@ -44,6 +45,13 @@ def _ensure_db():
         _seed_projects()
     except Exception:
         pass  # R&D is optional
+
+    # Ensure Skills schema and seed data
+    try:
+        init_skills_schema()
+        _seed_skills()
+    except Exception:
+        pass  # Skills is optional
 
 _ensure_db()
 
@@ -182,6 +190,39 @@ def get_dashboard_data():
     except Exception:
         d["rnd_projects"] = []
 
+    # Skills data — full data for organized display
+    try:
+        d["skills"] = _q("""
+            SELECT skill_id, name, display_name, category, description,
+                   status, phase, pattern, priority, trigger_accuracy,
+                   execution_quality, token_efficiency, version, connected_to
+            FROM skills
+            WHERE status != 'retired'
+            ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1
+                     WHEN 'medium' THEN 2 ELSE 3 END, skill_id ASC
+        """)
+    except Exception:
+        d["skills"] = []
+
+    # Skills summary stats
+    d["skills_by_cat"] = {}
+    d["skills_by_phase"] = {}
+    for s in d.get("skills", []):
+        cat = s.get("category", "unknown")
+        phase = s.get("phase", "identify")
+        if cat not in d["skills_by_cat"]:
+            d["skills_by_cat"][cat] = {"count": 0, "active": 0, "testing": 0}
+        d["skills_by_cat"][cat]["count"] += 1
+        st = s.get("status", "draft")
+        if st in ("active",):
+            d["skills_by_cat"][cat]["active"] += 1
+        elif st in ("testing",):
+            d["skills_by_cat"][cat]["testing"] += 1
+
+        if phase not in d["skills_by_phase"]:
+            d["skills_by_phase"][phase] = 0
+        d["skills_by_phase"][phase] += 1
+
     # R&D summary stats
     d["rnd_labs"] = {}
     for p in d["rnd_projects"]:
@@ -225,6 +266,27 @@ def api_competitors():
         WHERE c.status = 'Active'
         ORDER BY cs.score DESC NULLS LAST
     """)
+    return jsonify(rows)
+
+
+@app.route("/api/skills")
+def api_skills():
+    try:
+        rows = _q("""
+            SELECT s.*, COUNT(st.test_id) as test_count,
+                   SUM(CASE WHEN st.passed THEN 1 ELSE 0 END) as tests_passed
+            FROM skills s
+            LEFT JOIN skill_tests st ON s.skill_id = st.skill_id
+            WHERE s.status != 'retired'
+            GROUP BY s.skill_id, s.name, s.display_name, s.category,
+                     s.description, s.trigger_phrases, s.status, s.phase,
+                     s.pattern, s.priority, s.doctrine_alignment,
+                     s.trigger_accuracy, s.execution_quality, s.token_efficiency,
+                     s.connected_to, s.version, s.created_at, s.updated_at
+            ORDER BY s.skill_id
+        """)
+    except Exception:
+        rows = []
     return jsonify(rows)
 
 
@@ -1390,6 +1452,105 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SKILLS DEPARTMENT CARDS
+   ═══════════════════════════════════════════════════════════════ */
+.skill-card {
+  padding: 14px 16px;
+  border-radius: var(--radius-xs);
+  background: rgba(250,250,250,0.02);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.skill-card:hover {
+  background: rgba(250,250,250,0.04);
+  border-color: rgba(250,250,250,0.1);
+}
+.skill-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.skill-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+.skill-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.skill-card-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.skill-tag {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.skill-version {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.skill-metrics {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.skill-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.skill-metric-value {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.skill-metric-label {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.skill-phase-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+.skill-phase-pip {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(250,250,250,0.06);
+}
+.skill-phase-pip.filled {
+  background: var(--teal);
+  opacity: 0.8;
+}
+.skill-links {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════════════════════
    SECTION HEADERS — functional grouping
    ═══════════════════════════════════════════════════════════════ */
 .section-header {
@@ -1923,6 +2084,123 @@ body {
           <span class="rnd-revenue">{{ p.revenue_potential }}</span>
           {% endif %}
         </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 05: SKILLS DEPARTMENT
+         ════════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">Skills Department</span>
+      <span class="section-line"></span>
+    </div>
+
+    <!-- SKILLS OVERVIEW STRIP -->
+    <div class="card card-glow card-3d" style="grid-column: span 12; grid-row: span 2;">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label">Skills Pipeline Overview</span>
+        <span class="card-badge badge-teal">{{ data.skills|length }} SKILLS &middot; 3 CATEGORIES</span>
+      </div>
+      <div class="stat-strip">
+        {% set cat_configs = {'document': 'Document', 'workflow': 'Workflow', 'mcp': 'MCP Enhancement'} %}
+        {% set cat_colors = {'document': '#60A5FA', 'workflow': '#F472B6', 'mcp': '#A78BFA'} %}
+        {% for cat_key, cat_label in cat_configs.items() %}
+        <div class="stat-chip">
+          <div class="stat-chip-value" style="color: {{ cat_colors.get(cat_key, 'var(--white)') }};">{{ data.skills_by_cat.get(cat_key, {}).get('count', 0) }}</div>
+          <div class="stat-chip-label">{{ cat_label }}</div>
+        </div>
+        {% endfor %}
+        <div class="stat-chip">
+          <div class="stat-chip-value" style="color: var(--teal);">{{ data.skills|selectattr('status', 'equalto', 'active')|list|length }}</div>
+          <div class="stat-chip-label">Live</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-value" style="color: #FBBF24;">{{ data.skills_by_phase.get('test', 0) + data.skills_by_phase.get('build', 0) }}</div>
+          <div class="stat-chip-label">Testing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SKILLS BY CATEGORY -->
+    {% set skill_cat_configs = [
+      ('document', 'Document / Asset Creation', 'Generate reports, briefs, analysis docs from warehouse data. Templates + style guides.', '#60A5FA', 'rgba(96,165,250,0.08)'),
+      ('workflow', 'Workflow Automation', 'Multi-step processes with validation. Coordinates agents, enforces quality gates.', '#F472B6', 'rgba(244,114,182,0.08)'),
+      ('mcp', 'MCP Enhancement', 'Guides Claude tool usage. Embeds domain expertise, optimizes API coordination.', '#A78BFA', 'rgba(167,139,250,0.08)')
+    ] %}
+
+    {% for cat_key, cat_label, cat_desc, cat_color, cat_bg in skill_cat_configs %}
+    {% set cat_skills = data.skills|selectattr('category', 'equalto', cat_key)|list %}
+    {% if cat_skills %}
+    <div class="card card-glow card-3d b-wide" style="border-top: 2px solid {{ cat_color }}20;">
+      <div class="spotlight"></div>
+      <div class="card-header">
+        <span class="card-label" style="color: {{ cat_color }};">{{ cat_label }}</span>
+        <span class="card-badge" style="background: {{ cat_bg }}; color: {{ cat_color }}; border: 1px solid {{ cat_color }}30;">{{ cat_skills|length }} SKILLS</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">{{ cat_desc }}</div>
+
+      {% for s in cat_skills %}
+      <div class="skill-card">
+        <div class="skill-card-header">
+          <span class="pipeline-id">#{{ s.skill_id }}</span>
+          <span class="skill-card-title">{{ s.display_name }}</span>
+          <span class="skill-tag" style="
+            {% if s.status == 'active' %}background: rgba(46,196,182,0.12); color: var(--teal-soft);
+            {% elif s.status == 'testing' %}background: rgba(251,191,36,0.1); color: #FBBF24;
+            {% elif s.status == 'design' %}background: rgba(167,139,250,0.1); color: #A78BFA;
+            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
+            {% endif %}
+          ">{{ s.status|upper }}</span>
+          <span class="skill-tag" style="
+            {% if s.priority == 'critical' %}background: rgba(230,57,70,0.12); color: var(--red-soft);
+            {% elif s.priority == 'high' %}background: rgba(251,191,36,0.1); color: #FBBF24;
+            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
+            {% endif %}
+          ">{{ s.priority|upper }}</span>
+        </div>
+        {% if s.description %}
+        <div class="skill-card-desc">{{ s.description|e|truncate(160) }}</div>
+        {% endif %}
+
+        <!-- Phase progress bar -->
+        {% set phases = ['identify', 'design', 'build', 'test', 'deploy', 'maintain'] %}
+        {% set phase_idx = phases.index(s.phase) if s.phase in phases else 0 %}
+        <div class="skill-phase-bar" title="Phase: {{ s.phase|upper }}">
+          {% for i in range(6) %}
+          <div class="skill-phase-pip {% if i <= phase_idx %}filled{% endif %}"></div>
+          {% endfor %}
+          <span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 6px; letter-spacing: 1px;">{{ s.phase|upper }}</span>
+        </div>
+
+        <div class="skill-card-meta">
+          {% if s.trigger_accuracy is not none %}
+          <div class="skill-metric">
+            <span class="skill-metric-value" style="color: {% if s.trigger_accuracy >= 90 %}var(--teal-soft){% elif s.trigger_accuracy >= 80 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.trigger_accuracy|int }}%</span>
+            <span class="skill-metric-label">TRIGGER</span>
+          </div>
+          {% endif %}
+          {% if s.execution_quality is not none %}
+          <div class="skill-metric">
+            <span class="skill-metric-value" style="color: {% if s.execution_quality >= 85 %}var(--teal-soft){% elif s.execution_quality >= 75 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.execution_quality|int }}%</span>
+            <span class="skill-metric-label">QUALITY</span>
+          </div>
+          {% endif %}
+          {% if s.token_efficiency is not none %}
+          <div class="skill-metric">
+            <span class="skill-metric-value" style="color: {% if s.token_efficiency >= 85 %}var(--teal-soft){% elif s.token_efficiency >= 75 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.token_efficiency|int }}%</span>
+            <span class="skill-metric-label">TOKENS</span>
+          </div>
+          {% endif %}
+          <span class="skill-version">v{{ s.version }}</span>
+        </div>
+        {% if s.connected_to %}
+        <div class="skill-links">Links: {{ s.connected_to }}</div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
