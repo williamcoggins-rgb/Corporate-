@@ -269,6 +269,36 @@ def api_competitors():
     return jsonify(rows)
 
 
+@app.route("/api/skills/run/<skill_name>", methods=["POST"])
+def api_skill_run(skill_name):
+    """Run a skill's agent pipeline."""
+    try:
+        from agents.skill_executor import SkillExecutor
+        executor = SkillExecutor()
+        result = executor.run_skill(skill_name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e), "skill": skill_name}), 500
+
+
+@app.route("/api/skills/preview/<skill_name>")
+def api_skill_preview(skill_name):
+    """Preview what agents a skill will run."""
+    try:
+        from agents.skill_executor import SKILL_PIPELINES
+        pipeline = SKILL_PIPELINES.get(skill_name)
+        if not pipeline:
+            return jsonify({"error": f"No pipeline for: {skill_name}"}), 404
+        return jsonify({
+            "skill": skill_name,
+            "description": pipeline["description"],
+            "stages": pipeline["stages"],
+            "total_agents": sum(len(s["agents"]) for s in pipeline.get("stages", [])),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/skills")
 def api_skills():
     try:

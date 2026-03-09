@@ -8,6 +8,11 @@ Usage:
     python -m agents.runner tier4        # Run alert agents
     python -m agents.runner digest       # Run weekly digest only
     python -m agents.runner <agent_name> # Run a specific agent
+
+Skill-powered execution:
+    python -m agents.runner skill <skill-name>    # Run agents via a skill pipeline
+    python -m agents.runner skill --preview <name> # Preview what a skill will run
+    python -m agents.runner skill --list           # List all skill pipelines
 """
 
 import sys
@@ -119,7 +124,7 @@ def main():
     if len(sys.argv) < 2:
         list_agents()
         print("Usage: python -m agents.runner <command>")
-        print("Commands: all, tier1, tier2, tier3, tier4, digest, list, <agent_name>")
+        print("Commands: all, tier1, tier2, tier3, tier4, digest, list, skill, <agent_name>")
         return
 
     command = sys.argv[1].lower()
@@ -130,6 +135,27 @@ def main():
         list_agents()
     elif command == "digest":
         run_agents(["weekly_digest"])
+    elif command == "skill":
+        # Skill-powered execution
+        from agents.skill_executor import SkillExecutor, SKILL_PIPELINES
+        skill_args = sys.argv[2:]
+        if not skill_args or skill_args[0] == "--list":
+            print("\nSkill Pipelines:")
+            print("-" * 60)
+            for name, pipeline in sorted(SKILL_PIPELINES.items()):
+                stages = len(pipeline.get("stages", []))
+                agents = sum(len(s["agents"]) for s in pipeline.get("stages", []))
+                print(f"  {name:30s} {stages} stages, {agents} agents")
+            print(f"\nUsage: python -m agents.runner skill <skill-name>")
+            print(f"       python -m agents.runner skill --preview <skill-name>")
+        elif skill_args[0] == "--preview" and len(skill_args) > 1:
+            executor = SkillExecutor()
+            executor.preview_skill(skill_args[1])
+        else:
+            skill_name = skill_args[0]
+            executor = SkillExecutor()
+            result = executor.run_skill(skill_name)
+            print(f"\nResult: {result['status'].upper()}")
     elif command in TIERS:
         run_tier(command)
     elif command in AGENTS:
