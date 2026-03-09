@@ -9,7 +9,7 @@ Run:  python app.py
 
 import json
 import os
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 from warehouse.db import get_connection, init_schema
 from strategy import YOUR_SHOP
 from rnd import init_rnd_schema, _seed_assets, _seed_projects
@@ -267,6 +267,56 @@ def api_competitors():
         ORDER BY cs.score DESC NULLS LAST
     """)
     return jsonify(rows)
+
+
+@app.route("/api/prices/by-zip")
+def api_prices_by_zip():
+    """Zip code pricing rankings — most to least expensive."""
+    service = request.args.get("service")
+    try:
+        from agents.pricing_scout import PricingScout
+        scout = PricingScout()
+        data = scout.prices_by_zip(service_name=service)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/prices/by-zip/<zip_code>")
+def api_prices_by_zip_detail(zip_code):
+    """Per-shop pricing detail for a specific zip code."""
+    service = request.args.get("service")
+    try:
+        from agents.pricing_scout import PricingScout
+        scout = PricingScout()
+        data = scout.zip_price_detail(zip_code, service_name=service)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/prices/zip-spread")
+def api_prices_zip_spread():
+    """Price spread across zips — which services vary most by location."""
+    try:
+        from agents.pricing_scout import PricingScout
+        scout = PricingScout()
+        data = scout.zip_price_spread()
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/prices/zip-report")
+def api_prices_zip_report():
+    """Full zip pricing report — rankings, breakdowns, opportunities."""
+    try:
+        from agents.warehouse_divisions.pricing_intelligence import PricingIntelZipAnalyst
+        analyst = PricingIntelZipAnalyst()
+        report = analyst.full_zip_report()
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/skills/run/<skill_name>", methods=["POST"])

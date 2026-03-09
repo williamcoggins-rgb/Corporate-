@@ -138,6 +138,118 @@ class PricingScout(BaseAgent):
         con.close()
         return [dict(zip(columns, row)) for row in rows]
 
+    def prices_by_zip(self, service_name=None):
+        """Get latest prices organized by zip code, ranked most to least expensive.
+
+        Returns a list of dicts:
+          zip_code, neighborhood, shop_count, avg_price, min_price, max_price, median_price
+        Ordered by avg_price DESC (most expensive zip first).
+        """
+        con = get_connection()
+        service_filter = ""
+        params = []
+        if service_name:
+            service_filter = "AND ph.service_name ILIKE ?"
+            params.append(f"%{service_name}%")
+
+        rows = con.execute(f"""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+                WHERE 1=1 {service_filter}
+            )
+            SELECT c.zip_code,
+                   COALESCE(c.neighborhood, c.hq_location) as neighborhood,
+                   COUNT(DISTINCT c.competitor_id) as shop_count,
+                   ROUND(AVG(lp.price), 2) as avg_price,
+                   ROUND(MIN(lp.price), 2) as min_price,
+                   ROUND(MAX(lp.price), 2) as max_price,
+                   ROUND(MEDIAN(lp.price), 2) as median_price
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1 AND c.zip_code IS NOT NULL
+            GROUP BY c.zip_code, COALESCE(c.neighborhood, c.hq_location)
+            ORDER BY avg_price DESC
+        """, params).fetchall()
+        columns = [desc[0] for desc in con.description]
+        con.close()
+        return [dict(zip(columns, row)) for row in rows]
+
+    def zip_price_detail(self, zip_code, service_name=None):
+        """Get per-shop pricing detail for a specific zip code.
+
+        Returns each shop's latest prices in that zip, sorted by price ASC.
+        """
+        con = get_connection()
+        service_filter = ""
+        params = [zip_code]
+        if service_name:
+            service_filter = "AND ph.service_name ILIKE ?"
+            params.append(f"%{service_name}%")
+
+        rows = con.execute(f"""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price, ph.recorded_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+                WHERE 1=1 {service_filter}
+            )
+            SELECT c.company_name, c.zip_code, c.neighborhood,
+                   lp.service_name, lp.price, lp.recorded_at
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1 AND c.zip_code = ?
+            ORDER BY lp.service_name, lp.price ASC
+        """, params).fetchall()
+        columns = [desc[0] for desc in con.description]
+        con.close()
+        return [dict(zip(columns, row)) for row in rows]
+
+    def zip_price_spread(self):
+        """Show the price spread (max - min avg) across all zips per service.
+
+        Highlights which services have the biggest geographic price variation.
+        """
+        con = get_connection()
+        rows = con.execute("""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+            ),
+            zip_avgs AS (
+                SELECT c.zip_code, lp.service_name,
+                       ROUND(AVG(lp.price), 2) as avg_price
+                FROM latest_prices lp
+                JOIN competitors c ON c.competitor_id = lp.competitor_id
+                WHERE lp.rn = 1 AND c.zip_code IS NOT NULL
+                GROUP BY c.zip_code, lp.service_name
+                HAVING COUNT(*) >= 2
+            )
+            SELECT service_name,
+                   COUNT(DISTINCT zip_code) as zip_count,
+                   ROUND(MIN(avg_price), 2) as cheapest_zip_avg,
+                   ROUND(MAX(avg_price), 2) as priciest_zip_avg,
+                   ROUND(MAX(avg_price) - MIN(avg_price), 2) as spread
+            FROM zip_avgs
+            GROUP BY service_name
+            HAVING zip_count >= 2
+            ORDER BY spread DESC
+        """).fetchall()
+        columns = [desc[0] for desc in con.description]
+        con.close()
+        return [dict(zip(columns, row)) for row in rows]
+
     def execute(self):
         """Main scout run — override with actual data collection logic."""
         self.log("Pricing Scout ready. Use record_price() or bulk_record_prices() to feed data.")

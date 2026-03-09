@@ -140,6 +140,156 @@ class PricingIntelAnalyst(BaseAgent):
         return recommendations
 
 
+class PricingIntelZipAnalyst(BaseAgent):
+    """Zip-code pricing analyst — ranks zones by price level and identifies opportunities."""
+    name = "pricing_intel_zip_analyst"
+    description = "Analyzes pricing by zip code to rank areas from most to least expensive"
+    tier = 3
+
+    def execute(self):
+        self.log("Analyzing pricing by zip code...")
+        report = self.full_zip_report()
+        self.records_processed = len(report.get("zip_rankings", []))
+
+        # Alert on pricing gaps (zips where you could charge more)
+        for gap in report.get("opportunity_gaps", []):
+            self.create_alert(
+                alert_type="zip_pricing_opportunity",
+                title=f"Pricing opportunity in {gap['zip_code']} ({gap['neighborhood']})",
+                detail=(f"Avg price ${gap['avg_price']:.2f} — "
+                        f"{gap['pct_above_city_avg']:+.0f}% vs city avg ${gap['city_avg']:.2f}"),
+                severity="info",
+            )
+
+    def full_zip_report(self):
+        """Comprehensive zip-code pricing report.
+
+        Returns:
+          - zip_rankings: all zips ranked most→least expensive
+          - service_breakdown: per-service zip rankings
+          - opportunity_gaps: zips priced above city avg (premium zones)
+          - underserved_zips: zips with few shops (potential openings)
+        """
+        from warehouse.db import get_connection
+        import json
+        con = get_connection()
+
+        # 1) Overall zip rankings (most expensive first)
+        zip_rankings = con.execute("""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+            )
+            SELECT c.zip_code,
+                   COALESCE(c.neighborhood, c.hq_location) as area_name,
+                   COUNT(DISTINCT c.competitor_id) as shop_count,
+                   COUNT(DISTINCT lp.service_name) as services_tracked,
+                   ROUND(AVG(lp.price), 2) as avg_price,
+                   ROUND(MIN(lp.price), 2) as min_price,
+                   ROUND(MAX(lp.price), 2) as max_price,
+                   ROUND(MEDIAN(lp.price), 2) as median_price,
+                   ROUND(STDDEV(lp.price), 2) as price_stddev
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1 AND c.zip_code IS NOT NULL
+            GROUP BY c.zip_code, COALESCE(c.neighborhood, c.hq_location)
+            ORDER BY avg_price DESC
+        """).fetchall()
+        zip_cols = [d[0] for d in con.description]
+        zip_data = [dict(zip(zip_cols, r)) for r in zip_rankings]
+
+        # City-wide average
+        city_avg_row = con.execute("""
+            WITH latest_prices AS (
+                SELECT price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY competitor_id, service_name
+                           ORDER BY recorded_at DESC
+                       ) as rn
+                FROM price_history
+            )
+            SELECT ROUND(AVG(price), 2) FROM latest_prices WHERE rn = 1
+        """).fetchone()
+        city_avg = float(city_avg_row[0]) if city_avg_row[0] else 0
+
+        # 2) Per-service zip rankings
+        service_breakdown = con.execute("""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+            )
+            SELECT lp.service_name, c.zip_code,
+                   COALESCE(c.neighborhood, c.hq_location) as area_name,
+                   COUNT(DISTINCT c.competitor_id) as shop_count,
+                   ROUND(AVG(lp.price), 2) as avg_price,
+                   ROUND(MIN(lp.price), 2) as min_price,
+                   ROUND(MAX(lp.price), 2) as max_price
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1 AND c.zip_code IS NOT NULL
+            GROUP BY lp.service_name, c.zip_code, COALESCE(c.neighborhood, c.hq_location)
+            ORDER BY lp.service_name, avg_price DESC
+        """).fetchall()
+        svc_cols = [d[0] for d in con.description]
+        svc_data = [dict(zip(svc_cols, r)) for r in service_breakdown]
+
+        # 3) Opportunity gaps — zips priced above city average
+        opportunity_gaps = []
+        for z in zip_data:
+            if city_avg > 0:
+                pct = ((float(z["avg_price"]) - city_avg) / city_avg) * 100
+            else:
+                pct = 0
+            if pct > 5:  # At least 5% above city avg
+                opportunity_gaps.append({
+                    "zip_code": z["zip_code"],
+                    "neighborhood": z["area_name"],
+                    "avg_price": float(z["avg_price"]),
+                    "city_avg": city_avg,
+                    "pct_above_city_avg": round(pct, 1),
+                    "shop_count": z["shop_count"],
+                })
+
+        # 4) Underserved zips — few shops but existing demand
+        underserved = [z for z in zip_data if z["shop_count"] <= 2]
+
+        con.close()
+
+        report = {
+            "city_avg_price": city_avg,
+            "zip_rankings": zip_data,
+            "service_breakdown": svc_data,
+            "opportunity_gaps": opportunity_gaps,
+            "underserved_zips": underserved,
+            "total_zips_analyzed": len(zip_data),
+        }
+
+        self.log(f"Analyzed {len(zip_data)} zips. City avg: ${city_avg:.2f}")
+        self.log(f"Premium zones: {len(opportunity_gaps)}. Underserved: {len(underserved)}.")
+
+        # Print the ranking
+        self.log("\nZIP CODE PRICING (Most → Least Expensive):")
+        self.log(f"{'─' * 70}")
+        self.log(f"  {'Rank':<5} {'Zip':<7} {'Area':<22} {'Shops':<6} {'Avg':>8} {'Min':>8} {'Max':>8}")
+        self.log(f"{'─' * 70}")
+        for i, z in enumerate(zip_data, 1):
+            marker = " *" if float(z["avg_price"]) > city_avg else ""
+            self.log(f"  {i:<5} {z['zip_code']:<7} {(z['area_name'] or 'Unknown')[:20]:<22} "
+                     f"{z['shop_count']:<6} ${z['avg_price']:>6} ${z['min_price']:>6} ${z['max_price']:>6}{marker}")
+        self.log(f"{'─' * 70}")
+        self.log(f"  City average: ${city_avg:.2f}   (* = above city avg)")
+
+        return report
+
+
 class PricingIntelAuditor(BaseAgent):
     name = "pricing_intel_auditor"
     description = "Validates pricing data quality and flags gaps"

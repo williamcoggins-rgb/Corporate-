@@ -174,6 +174,46 @@ class Scorecard(BaseAgent):
         con.close()
         return [dict(zip(columns, row)) for row in rows]
 
+    def price_ranking_by_zip(self, service_name=None):
+        """Rank zip codes from most to least expensive.
+
+        If service_name is provided, ranks for that service only.
+        Otherwise ranks across all services.
+        """
+        con = get_connection()
+        service_filter = ""
+        params = []
+        if service_name:
+            service_filter = "WHERE ph.service_name ILIKE ?"
+            params.append(f"%{service_name}%")
+
+        rows = con.execute(f"""
+            WITH latest_prices AS (
+                SELECT ph.competitor_id, ph.service_name, ph.price,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY ph.competitor_id, ph.service_name
+                           ORDER BY ph.recorded_at DESC
+                       ) as rn
+                FROM price_history ph
+                {service_filter}
+            )
+            SELECT c.zip_code,
+                   COALESCE(c.neighborhood, c.hq_location) as area,
+                   COUNT(DISTINCT c.competitor_id) as shops,
+                   ROUND(AVG(lp.price), 2) as avg_price,
+                   ROUND(MIN(lp.price), 2) as min_price,
+                   ROUND(MAX(lp.price), 2) as max_price,
+                   ROUND(MEDIAN(lp.price), 2) as median_price
+            FROM latest_prices lp
+            JOIN competitors c ON c.competitor_id = lp.competitor_id
+            WHERE lp.rn = 1 AND c.zip_code IS NOT NULL
+            GROUP BY c.zip_code, COALESCE(c.neighborhood, c.hq_location)
+            ORDER BY avg_price DESC
+        """, params).fetchall()
+        columns = [desc[0] for desc in con.description]
+        con.close()
+        return [dict(zip(columns, row)) for row in rows]
+
     def price_comparison_by_area(self, service_name="Fade"):
         """Average price for a service across neighborhoods."""
         con = get_connection()
