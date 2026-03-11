@@ -382,6 +382,53 @@ def api_pricing():
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  WAREHOUSE API — full table access for external consumers
+# ════════════════════════════════════════════════════════════════════════
+
+# Tables available via the warehouse API
+WAREHOUSE_TABLES = [
+    "competitors", "competitor_moves", "competitor_social", "competitor_products",
+    "competitor_financials", "competitor_scores", "price_history", "review_snapshots",
+    "barbers", "barber_specialties", "neighborhoods", "platform_profiles",
+    "platform_solo_barbers", "rnd_projects", "rnd_assets", "rnd_experiments",
+    "skills", "skill_deployments", "skill_tests", "alerts_log", "agent_runs",
+]
+
+
+@app.route("/api/warehouse")
+def api_warehouse_index():
+    """List all available tables and their row counts."""
+    results = []
+    for table in WAREHOUSE_TABLES:
+        try:
+            count = _q(f"SELECT COUNT(*) AS cnt FROM {table}")[0]["cnt"]
+        except Exception:
+            count = 0
+        results.append({"table": table, "rows": count})
+    return jsonify({"tables": results})
+
+
+@app.route("/api/warehouse/<table_name>")
+def api_warehouse_table(table_name):
+    """Return all rows from a warehouse table. Supports ?limit=N&offset=N."""
+    if table_name not in WAREHOUSE_TABLES:
+        return jsonify({"error": f"Unknown table: {table_name}"}), 404
+
+    limit = request.args.get("limit", 1000, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    limit = min(limit, 10000)  # cap at 10k rows per request
+
+    rows = _q(f"SELECT * FROM {table_name} LIMIT ? OFFSET ?", [limit, offset])
+    # Serialize non-JSON-safe types
+    for row in rows:
+        for k, v in row.items():
+            if not isinstance(v, (str, int, float, bool, type(None))):
+                row[k] = str(v)
+
+    return jsonify({"table": table_name, "count": len(rows), "rows": rows})
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  MAIN ROUTE — serves the dashboard
 # ════════════════════════════════════════════════════════════════════════
 
