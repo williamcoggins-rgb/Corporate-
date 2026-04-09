@@ -161,3 +161,36 @@ class PlatformScout(BaseAgent):
         weak = self._get_weak_zips()
         if weak:
             self.log(f"Weak coverage zips (<=1 shop): {', '.join(sorted(weak))}")
+
+        # ── Booksy scrape ──────────────────────────────────────────
+        try:
+                        from agents.booksy_scraper import BookSyScraper
+                        booksy = BookSyScraper()
+                        results = booksy.run()
+                        for biz in results.get("solo_barbers", []):
+                                            self.record_solo_barber(
+                                                                    barber_name=biz.get("name", "Unknown"),
+                                                                    platform="Booksy",
+                                                                    zip_code=biz.get("zip_code", ""),
+                                                                    neighborhood=biz.get("neighborhood"),
+                                                                    rating=biz.get("rating"),
+                                                                    review_count=biz.get("review_count", 0),
+                                                                    profile_url=biz.get("profile_url"),
+                                                                    specialties=biz.get("specialties"),
+                                                                    price_range=biz.get("price_range"),
+                                                                    instagram_handle=biz.get("instagram_handle"),
+                                                                    notes=biz.get("notes"),
+                                            )
+                                        for biz in results.get("competitors", []):
+                                                            cid = self._get_or_create_competitor(biz.get("name", "Unknown"))
+                                                            self.record_platform_profile(
+                                                                                    competitor_id=cid,
+                                                                                    platform="Booksy",
+                                                                                    rating=biz.get("rating"),
+                                                                                    review_count=biz.get("review_count", 0),
+                                                                                    profile_url=biz.get("profile_url"),
+                                                                                    accepts_online_booking=True,
+                                                            )
+                                                        self.log(f"Booksy scrape complete: {len(results.get('solo_barbers', []))} solo barbers, {len(results.get('competitors', []))} shops")
+except Exception as e:
+            self.log(f"Booksy scrape failed: {e}", level="error")
