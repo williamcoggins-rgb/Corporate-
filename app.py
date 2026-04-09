@@ -9,11 +9,14 @@ Run:  python app.py
 
 import json
 import os
-from flask import Flask, jsonify, render_template_string, request
+import traceback
+import requests as http_requests
+from flask import Flask, jsonify, render_template_string, request, Response
 from warehouse.db import get_connection, init_schema
 from strategy import YOUR_SHOP
 from rnd import init_rnd_schema, _seed_assets, _seed_projects
 from skills import init_skills_schema, _seed_skills
+import anthropic
 
 app = Flask(__name__)
 
@@ -426,6 +429,217 @@ def api_warehouse_table(table_name):
                 row[k] = str(v)
 
     return jsonify({"table": table_name, "count": len(rows), "rows": rows})
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  AI CHAT ASSISTANT — Claude-powered Q&A with warehouse access
+# ════════════════════════════════════════════════════════════════════════
+
+CHAT_SYSTEM_PROMPT = """You are the Corporate HQ AI Assistant for a barbershop business in Charlotte, NC (South Park area, zip 28210).
+
+You are talking to William, the owner. He charges $40-65 per cut and is building a competitive intelligence operation to prepare for expanding from a suite to a full shop.
+
+YOUR ROLE:
+- Answer questions about his business using real data from the warehouse
+- Speak in plain, direct business language — no developer jargon, no corporate buzzwords
+- If the data doesn't exist yet, say so honestly. Never make up numbers.
+- Keep answers concise and actionable
+
+WHAT YOU HAVE ACCESS TO:
+1. A DuckDB warehouse with competitor data, pricing, reviews, social media, and agent logs
+2. Key tables: competitors, price_history, review_snapshots, competitor_social, competitor_moves, barbers, neighborhoods, alerts_log, agent_runs, rnd_projects, skills
+
+WAREHOUSE SCHEMA HIGHLIGHTS:
+- competitors: competitor_id, company_name, industry, hq_location, neighborhood, zip_code, ownership_type, status
+- price_history: competitor_id, service_name, price, recorded_at
+- review_snapshots: competitor_id, platform, rating, review_count, sentiment_score
+- competitor_social: competitor_id, platform, followers, engagement_rate
+- competitor_moves: competitor_id, move_type, description, move_date, impact_level
+- agent_runs: agent_name, started_at, finished_at, status, records_processed
+
+When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest records. Use single quotes for string literals."""
+
+CHAT_TOOLS = [
+    {
+        "name": "query_warehouse",
+        "description": "Execute a read-only SQL query against the DuckDB warehouse to answer questions about competitors, pricing, reviews, social media, and business data. Use DuckDB SQL syntax.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql": {
+                    "type": "string",
+                    "description": "The SQL SELECT query to execute against the warehouse"
+                }
+            },
+            "required": ["sql"]
+        }
+    },
+    {
+        "name": "read_agent_logs",
+        "description": "Read recent agent run logs to see what data collection has happened, when agents last ran, and their results.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "agent_name": {
+                    "type": "string",
+                    "description": "Optional: filter by agent name. Leave empty for all recent runs."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of recent runs to return (default 10)"
+                }
+            },
+            "required": []
+        }
+    }
+]
+
+
+def _execute_chat_tool(tool_name, tool_input):
+    """Execute a tool call from the chat assistant."""
+    if tool_name == "query_warehouse":
+        sql = tool_input.get("sql", "")
+        # Safety: only allow SELECT queries
+        stripped = sql.strip().upper()
+        if not stripped.startswith("SELECT") and not stripped.startswith("WITH") and not stripped.startswith("FROM"):
+            return {"error": "Only SELECT queries are allowed."}
+        try:
+            rows = _q(sql)
+            if len(rows) > 50:
+                rows = rows[:50]
+                return {"rows": rows, "note": "Showing first 50 rows. Query returned more."}
+            return {"rows": rows, "count": len(rows)}
+        except Exception as e:
+            return {"error": f"Query failed: {str(e)}"}
+
+    elif tool_name == "read_agent_logs":
+        agent_name = tool_input.get("agent_name", "")
+        limit = tool_input.get("limit", 10)
+        try:
+            if agent_name:
+                rows = _q(
+                    "SELECT * FROM agent_runs WHERE agent_name ILIKE ? ORDER BY started_at DESC LIMIT ?",
+                    [f"%{agent_name}%", limit]
+                )
+            else:
+                rows = _q("SELECT * FROM agent_runs ORDER BY started_at DESC LIMIT ?", [limit])
+            return {"runs": rows, "count": len(rows)}
+        except Exception:
+            return {"runs": [], "count": 0, "note": "No agent run logs found yet."}
+
+    return {"error": f"Unknown tool: {tool_name}"}
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """AI chat endpoint — Claude-powered Q&A with warehouse access."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured. Set it in your environment variables."}), 500
+
+    body = request.get_json(silent=True) or {}
+    user_message = body.get("message", "").strip()
+    history = body.get("history", [])
+
+    if not user_message:
+        return jsonify({"error": "No message provided."}), 400
+
+    # Build messages from history
+    messages = []
+    for h in history[-20:]:  # Keep last 20 messages for context
+        messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # Initial request with tools
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=CHAT_SYSTEM_PROMPT,
+            tools=CHAT_TOOLS,
+            messages=messages,
+        )
+
+        # Handle tool use loop (max 5 iterations)
+        for _ in range(5):
+            if response.stop_reason != "tool_use":
+                break
+
+            # Process tool calls
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    result = _execute_chat_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result, default=str),
+                    })
+
+            # Continue conversation with tool results
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_results})
+
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=CHAT_SYSTEM_PROMPT,
+                tools=CHAT_TOOLS,
+                messages=messages,
+            )
+
+        # Extract final text response
+        reply = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                reply += block.text
+
+        return jsonify({"reply": reply})
+
+    except anthropic.APIError as e:
+        return jsonify({"error": f"Claude API error: {str(e)}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"Chat failed: {str(e)}"}), 500
+
+
+@app.route("/api/tts", methods=["POST"])
+def api_tts():
+    """ElevenLabs TTS proxy — converts text to speech audio."""
+    el_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "")
+
+    if not el_key or not voice_id:
+        return jsonify({"error": "ElevenLabs not configured. Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID."}), 500
+
+    body = request.get_json(silent=True) or {}
+    text = body.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided."}), 400
+
+    try:
+        resp = http_requests.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+            headers={
+                "xi-api-key": el_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+            },
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"ElevenLabs error: {resp.status_code}"}), 502
+
+        return Response(resp.content, mimetype="audio/mpeg")
+
+    except Exception as e:
+        return jsonify({"error": f"TTS failed: {str(e)}"}), 500
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2379,6 +2593,264 @@ body {
 
 </div><!-- /shell -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     AI CHAT ASSISTANT — Floating widget
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+/* Chat FAB */
+.chat-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--teal), #1a8a7f);
+  border: 2px solid rgba(46,196,182,0.3);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(46,196,182,0.3), 0 0 0 0 rgba(46,196,182,0.4);
+  transition: all 0.3s;
+  animation: chat-pulse 3s ease-in-out infinite;
+}
+.chat-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 32px rgba(46,196,182,0.5);
+}
+.chat-fab.open { animation: none; }
+@keyframes chat-pulse {
+  0%, 100% { box-shadow: 0 4px 24px rgba(46,196,182,0.3), 0 0 0 0 rgba(46,196,182,0.4); }
+  50% { box-shadow: 0 4px 24px rgba(46,196,182,0.3), 0 0 0 8px rgba(46,196,182,0); }
+}
+
+/* Chat Panel */
+.chat-panel {
+  position: fixed;
+  bottom: 96px;
+  right: 28px;
+  width: 400px;
+  max-height: 560px;
+  background: rgba(14,14,16,0.97);
+  border: 1px solid rgba(250,250,250,0.08);
+  border-radius: 16px;
+  z-index: 9998;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(24px);
+  box-shadow: 0 16px 64px rgba(0,0,0,0.6), 0 0 1px rgba(250,250,250,0.1);
+}
+.chat-panel.visible {
+  display: flex;
+  animation: chat-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes chat-slide-up {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Chat Header */
+.chat-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(250,250,250,0.06);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-header-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 6px rgba(46,196,182,0.5);
+}
+.chat-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+.chat-header-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 300px;
+  max-height: 380px;
+}
+.chat-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: rgba(46,196,182,0.15);
+  border: 1px solid rgba(46,196,182,0.2);
+  color: var(--text-primary);
+}
+.chat-msg.assistant {
+  align-self: flex-start;
+  background: rgba(250,250,250,0.04);
+  border: 1px solid rgba(250,250,250,0.06);
+  color: var(--text-secondary);
+}
+.chat-msg.assistant .msg-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+.chat-msg .speaker-btn {
+  background: rgba(250,250,250,0.06);
+  border: 1px solid rgba(250,250,250,0.1);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-mono);
+}
+.chat-msg .speaker-btn:hover {
+  background: rgba(46,196,182,0.15);
+  color: var(--teal-soft);
+  border-color: rgba(46,196,182,0.3);
+}
+.chat-msg .speaker-btn.playing {
+  background: rgba(46,196,182,0.2);
+  color: var(--teal);
+}
+
+/* Loading dots */
+.chat-loading {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  align-self: flex-start;
+}
+.chat-loading span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal);
+  opacity: 0.4;
+  animation: chat-dot 1.2s ease-in-out infinite;
+}
+.chat-loading span:nth-child(2) { animation-delay: 0.2s; }
+.chat-loading span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chat-dot {
+  0%, 80%, 100% { opacity: 0.4; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Input */
+.chat-input-area {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(250,250,250,0.06);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.chat-input {
+  flex: 1;
+  background: rgba(250,250,250,0.04);
+  border: 1px solid rgba(250,250,250,0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.chat-input:focus {
+  border-color: rgba(46,196,182,0.4);
+}
+.chat-input::placeholder {
+  color: var(--text-muted);
+}
+.chat-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(250,250,250,0.08);
+  background: rgba(250,250,250,0.04);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.chat-btn:hover {
+  background: rgba(46,196,182,0.15);
+  color: var(--teal);
+  border-color: rgba(46,196,182,0.3);
+}
+.chat-btn.recording {
+  background: rgba(230,57,70,0.2);
+  color: var(--red-soft);
+  border-color: rgba(230,57,70,0.3);
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(230,57,70,0); }
+}
+.chat-btn.sending {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Scrollbar */
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(250,250,250,0.1); border-radius: 2px; }
+
+/* Mobile */
+@media (max-width: 480px) {
+  .chat-panel { right: 8px; left: 8px; width: auto; bottom: 80px; }
+  .chat-fab { bottom: 16px; right: 16px; }
+}
+</style>
+
+<!-- Chat FAB -->
+<button class="chat-fab" id="chatFab" title="Ask your AI assistant">&#9993;</button>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-header-dot"></div>
+    <div class="chat-header-title">HQ Assistant</div>
+    <div class="chat-header-sub">Ask anything about your business</div>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg assistant">
+      Hey William. I have access to your full warehouse — competitors, pricing, reviews, social data, and agent logs. Ask me anything about your market.
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <button class="chat-btn" id="chatMic" title="Voice input">&#9834;</button>
+    <input type="text" class="chat-input" id="chatInput" placeholder="Ask about your business..." autocomplete="off">
+    <button class="chat-btn" id="chatSend" title="Send">&#10148;</button>
+  </div>
+</div>
+
 <script>
 const DATA = {{ data_json|safe }};
 
@@ -2487,6 +2959,178 @@ document.addEventListener('DOMContentLoaded', () => {
   const dots = document.querySelectorAll('.status-dot .dot');
   dots.forEach((dot, i) => {
     dot.style.animationDelay = `${i * 0.3}s`;
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  //  AI CHAT ASSISTANT
+  // ═══════════════════════════════════════════════════════════════
+  const chatFab = document.getElementById('chatFab');
+  const chatPanel = document.getElementById('chatPanel');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+  const chatMic = document.getElementById('chatMic');
+  const chatMessages = document.getElementById('chatMessages');
+  let chatHistory = [];
+  let chatBusy = false;
+  let currentAudio = null;
+
+  // Toggle panel
+  chatFab.addEventListener('click', () => {
+    const open = chatPanel.classList.toggle('visible');
+    chatFab.classList.toggle('open', open);
+    chatFab.innerHTML = open ? '&#10005;' : '&#9993;';
+    if (open) chatInput.focus();
+  });
+
+  // Send message
+  function sendMessage(text) {
+    if (!text.trim() || chatBusy) return;
+    chatBusy = true;
+    chatSend.classList.add('sending');
+
+    // Add user message
+    appendMsg('user', text);
+    chatHistory.push({role: 'user', content: text});
+    chatInput.value = '';
+
+    // Show loading
+    const loader = document.createElement('div');
+    loader.className = 'chat-loading';
+    loader.innerHTML = '<span></span><span></span><span></span>';
+    chatMessages.appendChild(loader);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text, history: chatHistory.slice(0, -1)})
+    })
+    .then(r => r.json())
+    .then(data => {
+      loader.remove();
+      if (data.error) {
+        appendMsg('assistant', 'Error: ' + data.error);
+      } else {
+        appendMsg('assistant', data.reply, true);
+        chatHistory.push({role: 'assistant', content: data.reply});
+      }
+    })
+    .catch(err => {
+      loader.remove();
+      appendMsg('assistant', 'Connection error. Make sure the server is running.');
+    })
+    .finally(() => {
+      chatBusy = false;
+      chatSend.classList.remove('sending');
+    });
+  }
+
+  function appendMsg(role, text, showSpeaker) {
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+
+    // Simple markdown-like formatting
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+    div.innerHTML = html;
+
+    if (showSpeaker && role === 'assistant') {
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+      const btn = document.createElement('button');
+      btn.className = 'speaker-btn';
+      btn.innerHTML = '&#9835; Listen';
+      btn.addEventListener('click', () => playTTS(text, btn));
+      actions.appendChild(btn);
+      div.appendChild(actions);
+    }
+
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // TTS via ElevenLabs
+  function playTTS(text, btn) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    btn.classList.add('playing');
+    btn.innerHTML = '&#9835; Loading...';
+
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text.substring(0, 1000)})
+    })
+    .then(r => {
+      if (!r.ok) throw new Error('TTS unavailable');
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      currentAudio = new Audio(url);
+      currentAudio.play();
+      btn.innerHTML = '&#9835; Playing...';
+      currentAudio.addEventListener('ended', () => {
+        btn.classList.remove('playing');
+        btn.innerHTML = '&#9835; Listen';
+        currentAudio = null;
+      });
+    })
+    .catch(() => {
+      btn.classList.remove('playing');
+      btn.innerHTML = '&#9835; Unavailable';
+      setTimeout(() => { btn.innerHTML = '&#9835; Listen'; }, 2000);
+    });
+  }
+
+  // Voice input via Web Speech API
+  let recognition = null;
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      chatInput.value = transcript;
+      chatMic.classList.remove('recording');
+      chatMic.innerHTML = '&#9834;';
+      sendMessage(transcript);
+    };
+    recognition.onerror = () => {
+      chatMic.classList.remove('recording');
+      chatMic.innerHTML = '&#9834;';
+    };
+    recognition.onend = () => {
+      chatMic.classList.remove('recording');
+      chatMic.innerHTML = '&#9834;';
+    };
+  }
+
+  chatMic.addEventListener('click', () => {
+    if (!recognition) {
+      alert('Voice input not supported in this browser. Use Chrome for best results.');
+      return;
+    }
+    if (chatMic.classList.contains('recording')) {
+      recognition.stop();
+    } else {
+      chatMic.classList.add('recording');
+      chatMic.innerHTML = '&#9679;';
+      recognition.start();
+    }
+  });
+
+  // Send on click or Enter
+  chatSend.addEventListener('click', () => sendMessage(chatInput.value));
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(chatInput.value);
+    }
   });
 
 });
