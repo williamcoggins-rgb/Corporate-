@@ -237,11 +237,11 @@ def get_dashboard_data():
     # Council vote conditions
     monthly = d["shop"]["monthly_gross"]
     d["council"] = {
-        "strategist": {"ready": monthly >= 4000, "condition": "$4K+/mo gross with revenue layers"},
-        "comptroller": {"ready": monthly >= 4000 and d["shop"]["deposits"], "condition": "$4K+/mo AND deposits active"},
-        "intel": {"ready": d["competitor_count"] >= 15, "condition": "15+ competitors with live data"},
-        "operator": {"ready": d["shop"]["has_proprietary_os"] and d["shop"]["migrating_from"] is None, "condition": "OS deployed AND Booksy migrated"},
-        "brand": {"ready": d["shop"]["name"] != "Your Shop", "condition": "Shop named — brand identity set"},
+        "strategist": {"ready": monthly >= 4000, "condition": "Earning $4K/month with multiple income streams"},
+        "comptroller": {"ready": monthly >= 4000 and d["shop"]["deposits"], "condition": "Earning $4K/month with deposits turned on"},
+        "intel": {"ready": d["competitor_count"] >= 15, "condition": "Tracking 15+ competitors with real data"},
+        "operator": {"ready": d["shop"]["has_proprietary_os"] and d["shop"]["migrating_from"] is None, "condition": "Booking system live and clients moved over"},
+        "brand": {"ready": d["shop"]["name"] != "Your Shop", "condition": "Shop has a name and brand identity"},
     }
 
     return d
@@ -1769,25 +1769,25 @@ body {
       <div class="topbar-logo">HQ</div>
       <div>
         <div class="topbar-title">Corporate HQ</div>
-        <div class="topbar-subtitle">Strategic Intelligence Command Center</div>
+        <div class="topbar-subtitle">Business Intelligence Dashboard</div>
       </div>
     </div>
     <div class="topbar-status">
       <div class="status-dot">
         <span class="dot dot-green"></span>
-        OS LIVE
+        Booking System Live
       </div>
       <div class="status-dot">
         <span class="dot {% if data.shop.migrating_from %}dot-yellow{% else %}dot-green{% endif %}"></span>
-        {% if data.shop.migrating_from %}MIGRATING{% else %}BOOKSY CLEAR{% endif %}
+        {% if data.shop.migrating_from %}Moving Clients from Booksy{% else %}BOOKSY CLEAR{% endif %}
       </div>
       <div class="status-dot">
         <span class="dot dot-teal"></span>
-        {{ data.competitor_count }} TARGETS
+        {{ data.competitor_count }} Competitors Tracked
       </div>
       <div class="status-dot">
         <span class="dot {% if data.council.strategist.ready %}dot-green{% else %}dot-red{% endif %}"></span>
-        COUNCIL {{ [data.council.strategist.ready, data.council.comptroller.ready, data.council.intel.ready, data.council.operator.ready, data.council.brand.ready]|select|list|length }}/5
+        {{ [data.council.strategist.ready, data.council.comptroller.ready, data.council.intel.ready, data.council.operator.ready, data.council.brand.ready]|select|list|length }} of 5 Goals Met
       </div>
     </div>
   </div>
@@ -1795,7 +1795,7 @@ body {
   <!-- ═══ BOOKSY MIGRATION BANNER ═══ -->
   {% if data.shop.migrating_from %}
   <div class="migration-banner">
-    <div class="label">Booksy Migration</div>
+    <div class="label">Moving Clients from Booksy to Our System</div>
     <div class="bar-track"><div class="bar-fill"></div></div>
     <div class="pct">In Progress</div>
   </div>
@@ -1812,7 +1812,7 @@ body {
     <div class="card card-glow card-3d b-hero">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Revenue Command</span>
+        <span class="card-label">Revenue Overview</span>
         <span class="card-badge badge-teal">LIVE</span>
       </div>
       <div class="stat-row">
@@ -1829,19 +1829,19 @@ body {
       <div class="metric-grid">
         <div class="metric-cell">
           <div class="metric-value" style="color: var(--teal);">{{ data.competitor_count }}</div>
-          <div class="metric-label">Competitors</div>
+          <div class="metric-label">Competing Shops</div>
         </div>
         <div class="metric-cell">
           <div class="metric-value" style="color: var(--red);">{{ data.franchise_count }}</div>
-          <div class="metric-label">Franchises</div>
+          <div class="metric-label">Franchise Locations</div>
         </div>
         <div class="metric-cell">
           <div class="metric-value">{{ data.independent_count }}</div>
-          <div class="metric-label">Independents</div>
+          <div class="metric-label">Independent Barbers</div>
         </div>
         <div class="metric-cell">
           <div class="metric-value">{{ data.rnd_projects|length }}</div>
-          <div class="metric-label">R&amp;D Projects</div>
+          <div class="metric-label">Active Projects</div>
         </div>
       </div>
     </div>
@@ -1850,9 +1850,9 @@ body {
     <div class="card card-glow card-3d b-side">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">The Council</span>
+        <span class="card-label">Business Goals</span>
         {% set yes_votes = data.council.values()|selectattr('ready')|list|length %}
-        <span class="card-badge {% if yes_votes >= 3 %}badge-green{% elif yes_votes >= 1 %}badge-yellow{% else %}badge-red{% endif %}">{{ yes_votes }}/5 READY</span>
+        <span class="card-badge {% if yes_votes >= 3 %}badge-green{% elif yes_votes >= 1 %}badge-yellow{% else %}badge-red{% endif %}">{{ yes_votes }} of 5 Goals Reached</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
         Advisory board vote on readiness to transition from suite to full shop.
@@ -1876,7 +1876,7 @@ body {
          ════════════════════════════════════════════════════════ -->
     <div class="section-header">
       <span class="section-num">02</span>
-      <span class="section-title">Competitive Intelligence</span>
+      <span class="section-title">Competitor Research</span>
       <span class="section-line"></span>
     </div>
 
@@ -1884,7 +1884,7 @@ body {
     <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Your Service Menu vs Market</span>
+        <span class="card-label">Your Prices vs. The Market</span>
         <span class="card-badge badge-teal">{{ data.prices|length }} SERVICES</span>
       </div>
       {% set max_price = data.prices.values()|max if data.prices else 80 %}
@@ -1900,15 +1900,15 @@ body {
       {% if data.avg_fade > 0 %}
       <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; gap: 16px; flex-wrap: wrap;">
         <div style="font-size: 11px; font-family: var(--font-mono);">
-          <span style="color: var(--text-muted);">MKT AVG FADE</span>
+          <span style="color: var(--text-muted);">Market Average Fade Price</span>
           <span style="color: var(--white); font-weight: 600; margin-left: 4px;">${{ "%.0f"|format(data.avg_fade) }}</span>
         </div>
         <div style="font-size: 11px; font-family: var(--font-mono);">
-          <span style="color: var(--text-muted);">MKT HIGH</span>
+          <span style="color: var(--text-muted);">Market Highest Price</span>
           <span style="color: var(--red-soft); font-weight: 600; margin-left: 4px;">${{ "%.0f"|format(data.max_fade) }}</span>
         </div>
         <div style="font-size: 11px; font-family: var(--font-mono);">
-          <span style="color: var(--text-muted);">YOUR FADE</span>
+          <span style="color: var(--text-muted);">Your Fade Price</span>
           <span style="color: var(--teal-soft); font-weight: 600; margin-left: 4px;">${{ data.prices.get('Fade', 0) }}</span>
         </div>
       </div>
@@ -1919,7 +1919,7 @@ body {
     <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Territory Intel</span>
+        <span class="card-label">Neighborhood Breakdown</span>
         <span class="card-badge badge-teal">{{ data.neighborhoods|length }} ZONES</span>
       </div>
       <table class="intel-table">
@@ -1928,7 +1928,7 @@ body {
             <th>Neighborhood</th>
             <th>Shops</th>
             <th>Avg Fade</th>
-            <th>Saturation</th>
+            <th>How Crowded</th>
           </tr>
         </thead>
         <tbody>
@@ -1962,8 +1962,8 @@ body {
     <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Threat Board</span>
-        <span class="card-badge badge-red">{{ data.top_threats|length }} TRACKED</span>
+        <span class="card-label">Shops to Watch</span>
+        <span class="card-badge badge-red">{% if data.top_threats|length %}{{ data.top_threats|length }} Tracked{% else %}None Being Tracked Yet{% endif %}</span>
       </div>
       {% if data.top_threats %}
       <table class="intel-table">
@@ -1991,7 +1991,7 @@ body {
         </tbody>
       </table>
       {% else %}
-        <div class="empty">No threat scores computed. Run Scorecard agent.</div>
+        <div class="empty">No threat scores yet. Run the Scorecard agent to calculate.</div>
       {% endif %}
     </div>
 
@@ -1999,8 +1999,8 @@ body {
     <div class="card card-glow card-3d b-wide">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Competitor Moves</span>
-        <span class="card-badge badge-red">LIVE FEED</span>
+        <span class="card-label">Recent Competitor Activity</span>
+        <span class="card-badge badge-red">Live Updates</span>
       </div>
       {% if data.recent_moves %}
         {% for move in data.recent_moves %}
@@ -2055,7 +2055,7 @@ body {
          ════════════════════════════════════════════════════════ -->
     <div class="section-header">
       <span class="section-num">03</span>
-      <span class="section-title">Operations &amp; Systems</span>
+      <span class="section-title">Operations &amp; Tools</span>
       <span class="section-line"></span>
     </div>
 
@@ -2063,7 +2063,7 @@ body {
     <div class="card card-glow card-3d b-third">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Proprietary OS</span>
+        <span class="card-label">Our Booking System</span>
         <span class="card-badge {% if data.shop.has_proprietary_os %}badge-green{% else %}badge-red{% endif %}">
           {% if data.shop.has_proprietary_os %}DEPLOYED{% else %}PENDING{% endif %}
         </span>
@@ -2088,11 +2088,11 @@ body {
     <div class="card card-glow card-3d b-third">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Agent Fleet</span>
-        <span class="card-badge badge-teal">13 AGENTS</span>
+        <span class="card-label">Automated Agents</span>
+        <span class="card-badge badge-teal">13 Agents Running</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        Autonomous intel agents feeding the warehouse.
+        Automated agents that collect and analyze data.
       </div>
       <div class="agent-grid">
         {% set agents = ['PricingScout', 'ReviewHarvester', 'SocialListener', 'ShopWatcher', 'PlatformScout', 'Normalizer', 'BarberEnricher', 'DeltaSpotter', 'PlatformAnalyzer', 'Scorecard', 'PriceWarAlert', 'ReputationRadar', 'WeeklyDigest'] %}
@@ -2112,8 +2112,8 @@ body {
     <div class="card card-glow card-3d b-third">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">Alert Feed</span>
-        <span class="card-badge badge-yellow">{{ data.alerts|length }} ALERTS</span>
+        <span class="card-label">Alerts</span>
+        <span class="card-badge badge-yellow">{% if data.alerts|length %}{{ data.alerts|length }} Alerts{% else %}No Alerts{% endif %}</span>
       </div>
       {% if data.alerts %}
         {% for alert in data.alerts %}
@@ -2129,7 +2129,7 @@ body {
         </div>
         {% endfor %}
       {% else %}
-        <div class="empty">No alerts. All clear.</div>
+        <div class="empty">Everything looks good. No alerts right now.</div>
       {% endif %}
     </div>
 
@@ -2138,7 +2138,7 @@ body {
          ════════════════════════════════════════════════════════ -->
     <div class="section-header">
       <span class="section-num">04</span>
-      <span class="section-title">Research &amp; Development</span>
+      <span class="section-title">Projects &amp; Experiments</span>
       <span class="section-line"></span>
     </div>
 
@@ -2146,11 +2146,11 @@ body {
     <div class="card card-glow card-3d" style="grid-column: span 12; grid-row: span 2;">
       <div class="spotlight"></div>
       <div class="card-header">
-        <span class="card-label">R&amp;D Pipeline Overview</span>
+        <span class="card-label">Project Pipeline Overview</span>
         <span class="card-badge badge-teal">{{ data.rnd_projects|length }} PROJECTS &middot; 5 LABS</span>
       </div>
       <div class="stat-strip">
-        {% set lab_names = {'service': 'Service Lab', 'os': 'OS Lab', 'market': 'Market Lab', 'business': 'Business Lab', 'product': 'Product Lab'} %}
+        {% set lab_names = {'service': 'New Services Lab', 'os': 'Booking System Lab', 'market': 'Market Research Lab', 'business': 'Business Strategy Lab', 'product': 'Product Development Lab'} %}
         {% set lab_colors = {'service': 'var(--teal)', 'os': '#a78bfa', 'market': '#FBBF24', 'business': 'var(--red-soft)', 'product': '#34D399'} %}
         {% for lab_key, lab_label in lab_names.items() %}
         <div class="stat-chip">
@@ -2163,11 +2163,11 @@ body {
 
     <!-- R&D PROJECT CARDS BY LAB -->
     {% set lab_configs = [
-      ('service', 'Service Lab', 'New services, pricing models, bundles. Assets: THE CRAFT + THE DEGREE', 'var(--teal)', 'rgba(46,196,182,0.08)'),
-      ('os', 'OS Lab', 'Proprietary booking OS features, data products, automation. Assets: THE OS + THE AI', '#a78bfa', 'rgba(167,139,250,0.08)'),
-      ('market', 'Market Lab', 'Market research, expansion models, demand analysis. Assets: THE DEGREE + THE AI', '#FBBF24', 'rgba(251,191,36,0.08)'),
-      ('business', 'Business Lab', 'Revenue models, financial instruments, growth plays. Assets: THE DEGREE + THE AI', 'var(--red-soft)', 'rgba(255,107,107,0.08)'),
-      ('product', 'Product Lab', 'Retail product strategy, inventory, brand building. Assets: THE WAREHOUSE + THE CRAFT', '#34D399', 'rgba(52,211,153,0.08)')
+      ('service', 'New Services Lab', 'Testing new services, pricing models, and bundles.', 'var(--teal)', 'rgba(46,196,182,0.08)'),
+      ('os', 'Booking System Lab', 'Building features for our booking system, data tools, and automation.', '#a78bfa', 'rgba(167,139,250,0.08)'),
+      ('market', 'Market Research Lab', 'Researching the market, expansion opportunities, and demand.', '#FBBF24', 'rgba(251,191,36,0.08)'),
+      ('business', 'Business Strategy Lab', 'Revenue models, financial planning, and growth strategies.', 'var(--red-soft)', 'rgba(255,107,107,0.08)'),
+      ('product', 'Product Development Lab', 'Product lines, inventory strategy, and brand building.', '#34D399', 'rgba(52,211,153,0.08)')
     ] %}
 
     {% for lab_key, lab_label, lab_desc, lab_color, lab_bg in lab_configs %}
@@ -2338,7 +2338,7 @@ body {
 
   <!-- FOOTER -->
   <div style="text-align: center; padding: 48px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;">
-    CORPORATE HQ &middot; STRATEGIC INTELLIGENCE COMMAND &middot; POWERED BY THE DOCTRINE
+    CORPORATE HQ &middot; BUSINESS INTELLIGENCE DASHBOARD &middot; POWERED BY THE DOCTRINE
   </div>
 
 </div><!-- /shell -->
