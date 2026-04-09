@@ -1815,6 +1815,9 @@ body {
         <span class="card-label">Revenue Overview</span>
         <span class="card-badge badge-teal">LIVE</span>
       </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        Your current monthly income from the shop. Target is $4,500/month. All data is pulled live from your booking system.
+      </div>
       <div class="stat-row">
         <div class="stat-big white">${{ "{:,.0f}".format(data.shop.monthly_gross) }}</div>
         <div class="stat-unit">/month</div>
