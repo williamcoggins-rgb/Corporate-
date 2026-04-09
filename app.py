@@ -1885,6 +1885,9 @@ body {
       <span class="section-title">Competitor Research</span>
       <span class="section-line"></span>
     </div>
+    <div style="grid-column: span 12; font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: -8px; margin-bottom: 4px;">
+      Data collected automatically by your intelligence agents from Booksy, Google, and social media.
+    </div>
 
     <!-- PRICING CARD -->
     <div class="card card-glow card-3d b-wide">
@@ -1892,6 +1895,9 @@ body {
       <div class="card-header">
         <span class="card-label">Your Prices vs. The Market</span>
         <span class="card-badge badge-teal">{{ data.prices|length }} SERVICES</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        The bars show how your price compares to the market average. Green bar = market average. Red bar = market high. Your price is shown at the right.
       </div>
       {% set max_price = data.prices.values()|max if data.prices else 80 %}
       {% for name, price in data.prices.items() %}
@@ -1927,6 +1933,9 @@ body {
       <div class="card-header">
         <span class="card-label">Neighborhood Breakdown</span>
         <span class="card-badge badge-teal">{{ data.neighborhoods|length }} ZONES</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        Each row is a Charlotte neighborhood your agents are monitoring. Shows how many competing shops are there and what the average fade price is.
       </div>
       <table class="intel-table">
         <thead>
@@ -1971,6 +1980,9 @@ body {
         <span class="card-label">Shops to Watch</span>
         <span class="card-badge badge-red">{% if data.top_threats|length %}{{ data.top_threats|length }} Tracked{% else %}None Being Tracked Yet{% endif %}</span>
       </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        Competitors flagged by the Scorecard agent as high-threat based on ratings, growth, and pricing. Run the Scorecard agent to populate this.
+      </div>
       {% if data.top_threats %}
       <table class="intel-table">
         <thead>
@@ -2007,6 +2019,9 @@ body {
       <div class="card-header">
         <span class="card-label">Recent Competitor Activity</span>
         <span class="card-badge badge-red">Live Updates</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+        Events collected by your agents — new shop openings, expansions, franchise deals, and controversies in your market.
       </div>
       {% if data.recent_moves %}
         {% for move in data.recent_moves %}
@@ -2064,6 +2079,9 @@ body {
       <span class="section-title">Operations &amp; Tools</span>
       <span class="section-line"></span>
     </div>
+    <div style="grid-column: span 12; font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: -8px; margin-bottom: 4px;">
+      Your proprietary tech stack. This is what separates you from every other shop using off-the-shelf booking software.
+    </div>
 
     <!-- OS STATUS -->
     <div class="card card-glow card-3d b-third">
@@ -2075,7 +2093,7 @@ body {
         </span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        Custom booking &amp; ops system. Not Booksy. Not Vagaro. Yours.
+        Your custom booking and operations platform. Built specifically for this shop. Not Booksy, not Vagaro &mdash; yours.
       </div>
       {% for feat in data.shop.os_features %}
       <div class="os-feat">
@@ -2098,7 +2116,7 @@ body {
         <span class="card-badge badge-teal">13 Agents Running</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        Automated agents that collect and analyze data.
+        13 AI agents running in the background, continuously collecting data on competitors, pricing, reviews, and social media.
       </div>
       <div class="agent-grid">
         {% set agents = ['PricingScout', 'ReviewHarvester', 'SocialListener', 'ShopWatcher', 'PlatformScout', 'Normalizer', 'BarberEnricher', 'DeltaSpotter', 'PlatformAnalyzer', 'Scorecard', 'PriceWarAlert', 'ReputationRadar', 'WeeklyDigest'] %}
@@ -2120,6 +2138,9 @@ body {
       <div class="card-header">
         <span class="card-label">Alerts</span>
         <span class="card-badge badge-yellow">{% if data.alerts|length %}{{ data.alerts|length }} Alerts{% else %}No Alerts{% endif %}</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
+        Real-time notifications triggered by your agents when something important changes in your market.
       </div>
       {% if data.alerts %}
         {% for alert in data.alerts %}
@@ -2147,6 +2168,9 @@ body {
       <span class="section-title">Projects &amp; Experiments</span>
       <span class="section-line"></span>
     </div>
+    <div style="grid-column: span 12; font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: -8px; margin-bottom: 4px;">
+      Active R&amp;D initiatives organized into 5 labs. Each lab focuses on a different area of the business.
+    </div>
 
     <!-- R&D OVERVIEW STRIP -->
     <div class="card card-glow card-3d" style="grid-column: span 12; grid-row: span 2;">
@@ -2169,11 +2193,11 @@ body {
 
     <!-- R&D PROJECT CARDS BY LAB -->
     {% set lab_configs = [
-      ('service', 'New Services Lab', 'Testing new services, pricing models, and bundles.', 'var(--teal)', 'rgba(46,196,182,0.08)'),
-      ('os', 'Booking System Lab', 'Building features for our booking system, data tools, and automation.', '#a78bfa', 'rgba(167,139,250,0.08)'),
-      ('market', 'Market Research Lab', 'Researching the market, expansion opportunities, and demand.', '#FBBF24', 'rgba(251,191,36,0.08)'),
-      ('business', 'Business Strategy Lab', 'Revenue models, financial planning, and growth strategies.', 'var(--red-soft)', 'rgba(255,107,107,0.08)'),
-      ('product', 'Product Development Lab', 'Product lines, inventory strategy, and brand building.', '#34D399', 'rgba(52,211,153,0.08)')
+      ('service', 'New Services Lab', 'Testing new service offerings, pricing models, and service bundles.', 'var(--teal)', 'rgba(46,196,182,0.08)'),
+      ('os', 'Booking System Lab', 'Building new features into your proprietary booking and ops platform.', '#a78bfa', 'rgba(167,139,250,0.08)'),
+      ('market', 'Market Research Lab', 'Studying market trends, competitor strategies, and customer behavior.', '#FBBF24', 'rgba(251,191,36,0.08)'),
+      ('business', 'Business Strategy Lab', 'Exploring expansion models, partnerships, and revenue strategies.', 'var(--red-soft)', 'rgba(255,107,107,0.08)'),
+      ('product', 'Product Development Lab', 'Developing physical or digital products tied to the brand.', '#34D399', 'rgba(52,211,153,0.08)')
     ] %}
 
     {% for lab_key, lab_label, lab_desc, lab_color, lab_bg in lab_configs %}
