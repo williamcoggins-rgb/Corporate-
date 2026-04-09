@@ -2306,58 +2306,15 @@ body {
         <div class="skill-card-header">
           <span class="pipeline-id">#{{ s.skill_id }}</span>
           <span class="skill-card-title">{{ s.display_name }}</span>
-          <span class="skill-tag" style="
-            {% if s.status == 'active' %}background: rgba(46,196,182,0.12); color: var(--teal-soft);
-            {% elif s.status == 'testing' %}background: rgba(251,191,36,0.1); color: #FBBF24;
-            {% elif s.status == 'design' %}background: rgba(167,139,250,0.1); color: #A78BFA;
-            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
-            {% endif %}
-          ">{{ s.status|upper }}</span>
-          <span class="skill-tag" style="
-            {% if s.priority == 'critical' %}background: rgba(230,57,70,0.12); color: var(--red-soft);
-            {% elif s.priority == 'high' %}background: rgba(251,191,36,0.1); color: #FBBF24;
-            {% else %}background: rgba(250,250,250,0.04); color: var(--text-muted);
-            {% endif %}
-          ">{{ s.priority|upper }}</span>
+          {% if s.status == 'active' %}
+          <span class="skill-tag" style="background: rgba(46,196,182,0.12); color: var(--teal-soft);">ACTIVE</span>
+          {% elif s.status == 'testing' %}
+          <span class="skill-tag" style="background: rgba(251,191,36,0.1); color: #FBBF24;">TESTING</span>
+          {% endif %}
         </div>
         {% if s.description %}
         <div class="skill-card-desc">{{ s.description|e|truncate(160) }}</div>
         {% endif %}
-
-        <!-- Phase progress bar -->
-        {% set phases = ['identify', 'design', 'build', 'test', 'deploy', 'maintain'] %}
-        {% set phase_idx = phases.index(s.phase) if s.phase in phases else 0 %}
-        <div class="skill-phase-bar" title="Phase: {{ s.phase|upper }}">
-          {% for i in range(6) %}
-          <div class="skill-phase-pip {% if i <= phase_idx %}filled{% endif %}"></div>
-          {% endfor %}
-          <span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 6px; letter-spacing: 1px;">{{ s.phase|upper }}</span>
-        </div>
-
-        <!-- Status row: Last run, Data freshness, Status -->
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; font-family: var(--font-mono);">
-          <div>
-            <span style="color: var(--text-muted);">Last run:</span>
-            <span style="color: var(--white);">Never</span>
-          </div>
-          <div>
-            <span style="color: var(--text-muted);">Data freshness:</span>
-            <span style="color: var(--white);">{% if s.status == 'active' %}Agents updating daily{% else %}—{% endif %}</span>
-          </div>
-          <div>
-            <span style="color: var(--text-muted);">Status:</span>
-            {% if s.status == 'active' and s.phase in ('deploy', 'maintain') %}
-            <span style="color: #34D399; font-weight: 600;">Ready</span>
-            {% elif s.status == 'testing' %}
-            <span style="color: #FBBF24; font-weight: 600;">In Testing</span>
-            {% elif s.status == 'design' %}
-            <span style="color: #A78BFA; font-weight: 600;">Not Built Yet</span>
-            {% else %}
-            <span style="color: var(--text-muted); font-weight: 600;">Never run</span>
-            {% endif %}
-          </div>
-          <span class="skill-version">v{{ s.version }}</span>
-        </div>
 
         <!-- What you get -->
         {% set skill_outputs = {
@@ -2378,24 +2335,35 @@ body {
         </div>
         {% endif %}
 
-        <!-- Fed by: which agents feed this skill -->
-        {% set skill_feeds = {
-          'competitive-brief': 'Scorecard Agent · Data Warehouse',
-          'pricing-analysis': 'Pricing Intelligence · Pricing Scout',
-          'council-brief': 'Advisory Council · Data Warehouse',
-          'competitor-onboarding': 'Pricing Scout · Review Harvester · Scorecard Agent',
-          'weekly-intel-cycle': 'All 13 Agents · Alert System',
-          'rnd-project-setup': 'R&D System · Data Warehouse',
-          'warehouse-query-guide': 'Data Warehouse (all 21 tables)',
-          'agent-orchestrator': 'All 13 Agents',
-          'expansion-readiness-check': 'Advisory Council · Business Strategy',
-          'site-selection-analysis': 'Market Research · Demand Forecasting'
-        } %}
-        {% if s.name in skill_feeds %}
-        <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; font-family: var(--font-mono);">
-          Fed by: {{ skill_feeds[s.name] }}
+        <!-- Live status: Last run, Output, Fed by -->
+        <div style="margin-top: 10px; font-size: 11px; line-height: 1.8;">
+          <div>
+            <span style="color: var(--text-muted);">Last run:</span>
+            <span style="color: var(--white);">—</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">Output:</span>
+            <span style="color: var(--white);">—</span>
+          </div>
+          {% set skill_feeds = {
+            "competitive-brief": "Scorecard Agent · Data Warehouse",
+            "pricing-analysis": "Pricing Intelligence · Pricing Scout",
+            "council-brief": "Advisory Council · Data Warehouse",
+            "competitor-onboarding": "Pricing Scout · Review Harvester · Scorecard Agent",
+            "weekly-intel-cycle": "All 13 Agents · Alert System",
+            "rnd-project-setup": "R&D System · Data Warehouse",
+            "warehouse-query-guide": "Data Warehouse (all 21 tables)",
+            "agent-orchestrator": "All 13 Agents",
+            "expansion-readiness-check": "Advisory Council · Business Strategy",
+            "site-selection-analysis": "Market Research · Demand Forecasting"
+          } %}
+          {% if s.name in skill_feeds %}
+          <div>
+            <span style="color: var(--text-muted);">Fed by:</span>
+            <span style="color: var(--white);">{{ skill_feeds[s.name] }}</span>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
       </div>
       {% endfor %}
     </div>
