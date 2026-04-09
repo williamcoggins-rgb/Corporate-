@@ -2334,29 +2334,67 @@ body {
           <span style="font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); margin-left: 6px; letter-spacing: 1px;">{{ s.phase|upper }}</span>
         </div>
 
-        <div class="skill-card-meta">
-          {% if s.trigger_accuracy is not none %}
-          <div class="skill-metric">
-            <span class="skill-metric-value" style="color: {% if s.trigger_accuracy >= 90 %}var(--teal-soft){% elif s.trigger_accuracy >= 80 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.trigger_accuracy|int }}%</span>
-            <span class="skill-metric-label">TRIGGER</span>
+        <!-- Status row: Last run, Data freshness, Status -->
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; font-family: var(--font-mono);">
+          <div>
+            <span style="color: var(--text-muted);">Last run:</span>
+            <span style="color: var(--white);">Never</span>
           </div>
-          {% endif %}
-          {% if s.execution_quality is not none %}
-          <div class="skill-metric">
-            <span class="skill-metric-value" style="color: {% if s.execution_quality >= 85 %}var(--teal-soft){% elif s.execution_quality >= 75 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.execution_quality|int }}%</span>
-            <span class="skill-metric-label">QUALITY</span>
+          <div>
+            <span style="color: var(--text-muted);">Data freshness:</span>
+            <span style="color: var(--white);">{% if s.status == 'active' %}Agents updating daily{% else %}—{% endif %}</span>
           </div>
-          {% endif %}
-          {% if s.token_efficiency is not none %}
-          <div class="skill-metric">
-            <span class="skill-metric-value" style="color: {% if s.token_efficiency >= 85 %}var(--teal-soft){% elif s.token_efficiency >= 75 %}#FBBF24{% else %}var(--red-soft){% endif %};">{{ s.token_efficiency|int }}%</span>
-            <span class="skill-metric-label">TOKENS</span>
+          <div>
+            <span style="color: var(--text-muted);">Status:</span>
+            {% if s.status == 'active' and s.phase in ('deploy', 'maintain') %}
+            <span style="color: #34D399; font-weight: 600;">Ready</span>
+            {% elif s.status == 'testing' %}
+            <span style="color: #FBBF24; font-weight: 600;">In Testing</span>
+            {% elif s.status == 'design' %}
+            <span style="color: #A78BFA; font-weight: 600;">Not Built Yet</span>
+            {% else %}
+            <span style="color: var(--text-muted); font-weight: 600;">Never run</span>
+            {% endif %}
           </div>
-          {% endif %}
           <span class="skill-version">v{{ s.version }}</span>
         </div>
-        {% if s.connected_to %}
-        <div class="skill-links">Links: {{ s.connected_to }}</div>
+
+        <!-- What you get -->
+        {% set skill_outputs = {
+          "competitive-brief": "A formatted report showing exactly how your prices, services, and ratings compare to every competitor being tracked.",
+          "pricing-analysis": "A side-by-side breakdown of your prices vs the market so you can see where you are over or underpriced.",
+          "council-brief": "A formal document ready to present to your advisory board showing your progress toward the 5 expansion goals.",
+          "competitor-onboarding": "A fully tracked competitor entry with pricing, reviews, social profiles, and a threat score — all set up automatically.",
+          "weekly-intel-cycle": "A complete weekly intelligence sweep — updated prices, new reviews, social changes, and alerts across your entire market.",
+          "rnd-project-setup": "A structured project plan with hypothesis, success metrics, and a concept paper ready to begin research.",
+          "warehouse-query-guide": "Optimized data queries that pull exactly the right information from your warehouse without errors.",
+          "agent-orchestrator": "Coordinated agent runs in the right order with proper error handling — no manual work needed.",
+          "expansion-readiness-check": "A live readiness check against all 5 expansion goals showing exactly what is met and what is still needed.",
+          "site-selection-analysis": "A multi-factor analysis of potential shop locations comparing demographics, competition, pricing, and demand."
+        } %}
+        {% if s.name in skill_outputs %}
+        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">
+          <span style="color: var(--teal-soft); font-weight: 600;">What you get:</span> {{ skill_outputs[s.name] }}
+        </div>
+        {% endif %}
+
+        <!-- Fed by: which agents feed this skill -->
+        {% set skill_feeds = {
+          'competitive-brief': 'Scorecard Agent · Data Warehouse',
+          'pricing-analysis': 'Pricing Intelligence · Pricing Scout',
+          'council-brief': 'Advisory Council · Data Warehouse',
+          'competitor-onboarding': 'Pricing Scout · Review Harvester · Scorecard Agent',
+          'weekly-intel-cycle': 'All 13 Agents · Alert System',
+          'rnd-project-setup': 'R&D System · Data Warehouse',
+          'warehouse-query-guide': 'Data Warehouse (all 21 tables)',
+          'agent-orchestrator': 'All 13 Agents',
+          'expansion-readiness-check': 'Advisory Council · Business Strategy',
+          'site-selection-analysis': 'Market Research · Demand Forecasting'
+        } %}
+        {% if s.name in skill_feeds %}
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; font-family: var(--font-mono);">
+          Fed by: {{ skill_feeds[s.name] }}
+        </div>
         {% endif %}
       </div>
       {% endfor %}
