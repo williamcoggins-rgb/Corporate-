@@ -1830,21 +1830,25 @@ body {
       <div class="stat-sub">${{ "{:,}".format(data.shop.annual_gross) }}/yr gross &middot; {{ data.shop.setup }} &middot; {{ data.shop.neighborhood }} &middot; {{ data.shop.years_experience }}yr experience</div>
 
       <div class="metric-grid">
-        <div class="metric-cell">
+        <div class="metric-cell" title="Barbershops in your market being tracked by the intelligence agents">
           <div class="metric-value" style="color: var(--teal);">{{ data.competitor_count }}</div>
           <div class="metric-label">Competing Shops</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Tracked by intel agents</div>
         </div>
-        <div class="metric-cell">
+        <div class="metric-cell" title="Franchise chains with multiple locations (e.g. No Grease)">
           <div class="metric-value" style="color: var(--red);">{{ data.franchise_count }}</div>
           <div class="metric-label">Franchise Locations</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Chains like No Grease</div>
         </div>
-        <div class="metric-cell">
+        <div class="metric-cell" title="Solo barbers operating without a chain affiliation">
           <div class="metric-value">{{ data.independent_count }}</div>
           <div class="metric-label">Independent Barbers</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Solo, no chain</div>
         </div>
-        <div class="metric-cell">
+        <div class="metric-cell" title="R&D experiments currently running in your labs">
           <div class="metric-value">{{ data.rnd_projects|length }}</div>
           <div class="metric-label">Active Projects</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Running in your labs</div>
         </div>
       </div>
     </div>
@@ -1858,8 +1862,7 @@ body {
         <span class="card-badge {% if yes_votes >= 3 %}badge-green{% elif yes_votes >= 1 %}badge-yellow{% else %}badge-red{% endif %}">{{ yes_votes }} of 5 Goals Reached</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        Advisory board vote on readiness to transition from suite to full shop.
-        Need 3/5 to proceed.
+        These are the 5 milestones your advisory board requires before voting to expand from a suite to a full shop. Green = complete, Red = not yet met.
       </div>
       <div class="council-grid">
         {% for name, info in data.council.items() %}
