@@ -527,8 +527,8 @@ def api_chat_session():
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured."}), 500
     if not agent_id or not env_id:
-        # Fall back to Messages API if managed agent not configured
-        return jsonify({"session_id": "local", "mode": "messages"})
+        return jsonify({"session_id": "local", "mode": "messages",
+                        "note": f"Agent vars: CORPORATE_HQ_AGENT_ID={'set' if agent_id else 'missing'}, CORPORATE_HQ_ENV_ID={'set' if env_id else 'missing'}"})
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -539,8 +539,7 @@ def api_chat_session():
         return jsonify({"session_id": session.id, "mode": "managed"})
     except Exception as e:
         traceback.print_exc()
-        # Fall back to Messages API mode
-        return jsonify({"session_id": "local", "mode": "messages", "note": str(e)})
+        return jsonify({"session_id": "local", "mode": "messages", "note": f"Managed agent failed: {str(e)}"})
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -685,15 +684,28 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
             if response.stop_reason != "tool_use":
                 break
             tool_results = []
+            # Serialize assistant content for the message history
+            assistant_content = []
             for block in response.content:
                 if block.type == "tool_use":
+                    assistant_content.append({
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    })
                     result = _execute_chat_tool(block.name, block.input)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
                         "content": json.dumps(result, default=str),
                     })
-            messages.append({"role": "assistant", "content": response.content})
+                elif block.type == "text":
+                    assistant_content.append({
+                        "type": "text",
+                        "text": block.text,
+                    })
+            messages.append({"role": "assistant", "content": assistant_content})
             messages.append({"role": "user", "content": tool_results})
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
@@ -705,8 +717,14 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
 
         reply = ""
         for block in response.content:
-            if hasattr(block, "text"):
+            if block.type == "text":
                 reply += block.text
+            elif hasattr(block, "text") and block.text:
+                reply += block.text
+
+        if not reply:
+            reply = "I processed your request but couldn't generate a text response. Try rephrasing your question."
+
         return jsonify({"reply": reply, "mode": "messages"})
 
     except anthropic.APIError as e:
@@ -3182,8 +3200,9 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
       chatSessionId = data.session_id;
       chatMode = data.mode || 'messages';
-      const modeLabel = chatMode === 'managed' ? 'Connected to HQ Agent' : 'Direct mode';
+      const modeLabel = chatMode === 'managed' ? 'Connected to HQ Agent' : 'Ask anything about your business';
       document.querySelector('.chat-header-sub').textContent = modeLabel;
+      if (data.note) console.log('Chat session note:', data.note);
     })
     .catch(() => {
       chatSessionId = 'local';
