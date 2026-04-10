@@ -432,10 +432,194 @@ def api_warehouse_table(table_name):
 
 
 # ════════════════════════════════════════════════════════════════════════
-#  AI CHAT ASSISTANT — Claude-powered Q&A with warehouse access
+#  AI CHAT ASSISTANT — Claude Managed Agent with warehouse access
 # ════════════════════════════════════════════════════════════════════════
 
-CHAT_SYSTEM_PROMPT = """You are the Corporate HQ AI Assistant for a barbershop business in Charlotte, NC (South Park area, zip 28210).
+# Custom tool definitions for the managed agent
+CHAT_TOOLS = [
+    {
+        "type": "custom",
+        "name": "query_warehouse",
+        "description": (
+            "Execute a read-only SQL query against the DuckDB warehouse. "
+            "Tables: competitors, price_history, review_snapshots, competitor_social, "
+            "competitor_moves, barbers, neighborhoods, alerts_log, agent_runs, rnd_projects, skills. "
+            "Use DuckDB SQL syntax. QUALIFY ROW_NUMBER() for latest records. Single quotes for strings."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql": {
+                    "type": "string",
+                    "description": "The SQL SELECT query to execute"
+                }
+            },
+            "required": ["sql"]
+        }
+    },
+    {
+        "type": "custom",
+        "name": "read_agent_logs",
+        "description": "Read recent agent run logs to see what data collection has happened and when agents last ran.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "agent_name": {
+                    "type": "string",
+                    "description": "Optional: filter by agent name. Leave empty for all recent runs."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of recent runs to return (default 10)"
+                }
+            },
+            "required": []
+        }
+    }
+]
+
+
+def _execute_chat_tool(tool_name, tool_input):
+    """Execute a custom tool call from the managed agent."""
+    if tool_name == "query_warehouse":
+        sql = tool_input.get("sql", "")
+        stripped = sql.strip().upper()
+        if not stripped.startswith("SELECT") and not stripped.startswith("WITH") and not stripped.startswith("FROM"):
+            return {"error": "Only SELECT queries are allowed."}
+        try:
+            rows = _q(sql)
+            if len(rows) > 50:
+                rows = rows[:50]
+                return {"rows": rows, "note": "Showing first 50 rows."}
+            return {"rows": rows, "count": len(rows)}
+        except Exception as e:
+            return {"error": f"Query failed: {str(e)}"}
+
+    elif tool_name == "read_agent_logs":
+        agent_name = tool_input.get("agent_name", "")
+        limit = tool_input.get("limit", 10)
+        try:
+            if agent_name:
+                rows = _q(
+                    "SELECT * FROM agent_runs WHERE agent_name ILIKE ? ORDER BY started_at DESC LIMIT ?",
+                    [f"%{agent_name}%", limit]
+                )
+            else:
+                rows = _q("SELECT * FROM agent_runs ORDER BY started_at DESC LIMIT ?", [limit])
+            return {"runs": rows, "count": len(rows)}
+        except Exception:
+            return {"runs": [], "count": 0, "note": "No agent run logs found yet."}
+
+    return {"error": f"Unknown tool: {tool_name}"}
+
+
+# In-memory session store (session_id -> managed agent session_id)
+_chat_sessions = {}
+
+
+@app.route("/api/chat/session", methods=["POST"])
+def api_chat_session():
+    """Create a new managed agent session for the chat widget."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    agent_id = os.environ.get("CORPORATE_HQ_AGENT_ID", "")
+    env_id = os.environ.get("CORPORATE_HQ_ENV_ID", "")
+
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured."}), 500
+    if not agent_id or not env_id:
+        # Fall back to Messages API if managed agent not configured
+        return jsonify({"session_id": "local", "mode": "messages"})
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        session = client.beta.agents.sessions.create(
+            agent_id=agent_id,
+            environment_id=env_id,
+        )
+        return jsonify({"session_id": session.id, "mode": "managed"})
+    except Exception as e:
+        traceback.print_exc()
+        # Fall back to Messages API mode
+        return jsonify({"session_id": "local", "mode": "messages", "note": str(e)})
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """AI chat endpoint — routes to managed agent or Messages API fallback."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured. Set it in your environment variables."}), 500
+
+    body = request.get_json(silent=True) or {}
+    user_message = body.get("message", "").strip()
+    session_id = body.get("session_id", "")
+    mode = body.get("mode", "messages")
+    history = body.get("history", [])
+
+    if not user_message:
+        return jsonify({"error": "No message provided."}), 400
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # ── MANAGED AGENT MODE ──
+    if mode == "managed" and session_id and session_id != "local":
+        try:
+            # Send user message to the managed session
+            client.beta.agents.sessions.events.create(
+                session_id=session_id,
+                events=[{
+                    "type": "user_message",
+                    "content": [{"type": "text", "text": user_message}],
+                }],
+            )
+
+            # Collect response by polling/streaming events
+            reply = ""
+            max_polls = 30  # Up to 30 seconds
+            import time
+            for _ in range(max_polls):
+                session_state = client.beta.agents.sessions.retrieve(session_id)
+
+                # Process any pending tool calls
+                if session_state.status == "requires_input":
+                    # Handle custom tool calls
+                    for tool_call in (session_state.pending_tool_calls or []):
+                        result = _execute_chat_tool(tool_call.name, tool_call.input)
+                        client.beta.agents.sessions.events.create(
+                            session_id=session_id,
+                            events=[{
+                                "type": "tool_result",
+                                "tool_use_id": tool_call.id,
+                                "content": json.dumps(result, default=str),
+                            }],
+                        )
+                    continue
+
+                if session_state.status == "idle":
+                    # Get the latest assistant message
+                    events = client.beta.agents.sessions.events.list(session_id=session_id)
+                    for event in reversed(list(events)):
+                        if hasattr(event, 'type') and event.type == "agent_message":
+                            for block in (event.content or []):
+                                if hasattr(block, 'text'):
+                                    reply += block.text
+                            break
+                    break
+
+                time.sleep(1)
+
+            if reply:
+                return jsonify({"reply": reply, "mode": "managed"})
+            else:
+                return jsonify({"reply": "I processed your request but had no text response. Try asking again.", "mode": "managed"})
+
+        except Exception as e:
+            traceback.print_exc()
+            # Fall through to Messages API as fallback
+            mode = "messages"
+
+    # ── MESSAGES API FALLBACK ──
+    system_prompt = """You are the Corporate HQ AI Assistant for a barbershop business in Charlotte, NC (South Park area, zip 28210).
 
 You are talking to William, the owner. He charges $40-65 per cut and is building a competitive intelligence operation to prepare for expanding from a suite to a full shop.
 
@@ -459,115 +643,47 @@ WAREHOUSE SCHEMA HIGHLIGHTS:
 
 When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest records. Use single quotes for string literals."""
 
-CHAT_TOOLS = [
-    {
-        "name": "query_warehouse",
-        "description": "Execute a read-only SQL query against the DuckDB warehouse to answer questions about competitors, pricing, reviews, social media, and business data. Use DuckDB SQL syntax.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "sql": {
-                    "type": "string",
-                    "description": "The SQL SELECT query to execute against the warehouse"
-                }
-            },
-            "required": ["sql"]
-        }
-    },
-    {
-        "name": "read_agent_logs",
-        "description": "Read recent agent run logs to see what data collection has happened, when agents last ran, and their results.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "agent_name": {
-                    "type": "string",
-                    "description": "Optional: filter by agent name. Leave empty for all recent runs."
+    fallback_tools = [
+        {
+            "name": "query_warehouse",
+            "description": "Execute a read-only SQL query against the DuckDB warehouse.",
+            "input_schema": {
+                "type": "object",
+                "properties": {"sql": {"type": "string", "description": "The SQL SELECT query"}},
+                "required": ["sql"]
+            }
+        },
+        {
+            "name": "read_agent_logs",
+            "description": "Read recent agent run logs.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "agent_name": {"type": "string", "description": "Optional agent name filter"},
+                    "limit": {"type": "integer", "description": "Number of runs (default 10)"}
                 },
-                "limit": {
-                    "type": "integer",
-                    "description": "Number of recent runs to return (default 10)"
-                }
-            },
-            "required": []
+                "required": []
+            }
         }
-    }
-]
+    ]
 
-
-def _execute_chat_tool(tool_name, tool_input):
-    """Execute a tool call from the chat assistant."""
-    if tool_name == "query_warehouse":
-        sql = tool_input.get("sql", "")
-        # Safety: only allow SELECT queries
-        stripped = sql.strip().upper()
-        if not stripped.startswith("SELECT") and not stripped.startswith("WITH") and not stripped.startswith("FROM"):
-            return {"error": "Only SELECT queries are allowed."}
-        try:
-            rows = _q(sql)
-            if len(rows) > 50:
-                rows = rows[:50]
-                return {"rows": rows, "note": "Showing first 50 rows. Query returned more."}
-            return {"rows": rows, "count": len(rows)}
-        except Exception as e:
-            return {"error": f"Query failed: {str(e)}"}
-
-    elif tool_name == "read_agent_logs":
-        agent_name = tool_input.get("agent_name", "")
-        limit = tool_input.get("limit", 10)
-        try:
-            if agent_name:
-                rows = _q(
-                    "SELECT * FROM agent_runs WHERE agent_name ILIKE ? ORDER BY started_at DESC LIMIT ?",
-                    [f"%{agent_name}%", limit]
-                )
-            else:
-                rows = _q("SELECT * FROM agent_runs ORDER BY started_at DESC LIMIT ?", [limit])
-            return {"runs": rows, "count": len(rows)}
-        except Exception:
-            return {"runs": [], "count": 0, "note": "No agent run logs found yet."}
-
-    return {"error": f"Unknown tool: {tool_name}"}
-
-
-@app.route("/api/chat", methods=["POST"])
-def api_chat():
-    """AI chat endpoint — Claude-powered Q&A with warehouse access."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return jsonify({"error": "ANTHROPIC_API_KEY not configured. Set it in your environment variables."}), 500
-
-    body = request.get_json(silent=True) or {}
-    user_message = body.get("message", "").strip()
-    history = body.get("history", [])
-
-    if not user_message:
-        return jsonify({"error": "No message provided."}), 400
-
-    # Build messages from history
     messages = []
-    for h in history[-20:]:  # Keep last 20 messages for context
+    for h in history[-20:]:
         messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
     messages.append({"role": "user", "content": user_message})
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-
-        # Initial request with tools
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
-            system=CHAT_SYSTEM_PROMPT,
-            tools=CHAT_TOOLS,
+            system=system_prompt,
+            tools=fallback_tools,
             messages=messages,
         )
 
-        # Handle tool use loop (max 5 iterations)
         for _ in range(5):
             if response.stop_reason != "tool_use":
                 break
-
-            # Process tool calls
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
@@ -577,26 +693,21 @@ def api_chat():
                         "tool_use_id": block.id,
                         "content": json.dumps(result, default=str),
                     })
-
-            # Continue conversation with tool results
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results})
-
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1024,
-                system=CHAT_SYSTEM_PROMPT,
-                tools=CHAT_TOOLS,
+                system=system_prompt,
+                tools=fallback_tools,
                 messages=messages,
             )
 
-        # Extract final text response
         reply = ""
         for block in response.content:
             if hasattr(block, "text"):
                 reply += block.text
-
-        return jsonify({"reply": reply})
+        return jsonify({"reply": reply, "mode": "messages"})
 
     except anthropic.APIError as e:
         return jsonify({"error": f"Claude API error: {str(e)}"}), 500
@@ -3050,14 +3161,35 @@ document.addEventListener('DOMContentLoaded', () => {
   let chatHistory = [];
   let chatBusy = false;
   let currentAudio = null;
+  let chatSessionId = null;
+  let chatMode = 'messages';
 
-  // Toggle panel
+  // Toggle panel — create session on first open
   chatFab.addEventListener('click', () => {
     const open = chatPanel.classList.toggle('visible');
     chatFab.classList.toggle('open', open);
     chatFab.innerHTML = open ? '&#10005;' : '&#9993;';
-    if (open) chatInput.focus();
+    if (open) {
+      chatInput.focus();
+      if (!chatSessionId) initSession();
+    }
   });
+
+  // Initialize managed agent session
+  function initSession() {
+    fetch('/api/chat/session', {method: 'POST', headers: {'Content-Type': 'application/json'}})
+    .then(r => r.json())
+    .then(data => {
+      chatSessionId = data.session_id;
+      chatMode = data.mode || 'messages';
+      const modeLabel = chatMode === 'managed' ? 'Connected to HQ Agent' : 'Direct mode';
+      document.querySelector('.chat-header-sub').textContent = modeLabel;
+    })
+    .catch(() => {
+      chatSessionId = 'local';
+      chatMode = 'messages';
+    });
+  }
 
   // Send message
   function sendMessage(text) {
@@ -3080,7 +3212,12 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text, history: chatHistory.slice(0, -1)})
+      body: JSON.stringify({
+        message: text,
+        history: chatHistory.slice(0, -1),
+        session_id: chatSessionId,
+        mode: chatMode
+      })
     })
     .then(r => r.json())
     .then(data => {
