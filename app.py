@@ -9,6 +9,7 @@ Run:  python app.py
 
 import json
 import os
+import time
 import traceback
 import requests as http_requests
 from flask import Flask, jsonify, render_template_string, request, Response
@@ -526,17 +527,32 @@ def api_chat_session():
 
     if not api_key:
         return jsonify({"error": "ANTHROPIC_API_KEY not configured."}), 500
-    if not agent_id or not env_id:
+
+    # Check if SDK supports managed agents
+    client = anthropic.Anthropic(api_key=api_key)
+    has_agents = hasattr(client, 'beta') and hasattr(client.beta, 'agents')
+
+    if not agent_id or not env_id or not has_agents:
+        reason = []
+        if not agent_id:
+            reason.append("CORPORATE_HQ_AGENT_ID not set")
+        if not env_id:
+            reason.append("CORPORATE_HQ_ENV_ID not set")
+        if not has_agents:
+            reason.append(f"SDK v{getattr(anthropic, '__version__', '?')} lacks agents API")
         return jsonify({"session_id": "local", "mode": "messages",
-                        "note": f"Agent vars: CORPORATE_HQ_AGENT_ID={'set' if agent_id else 'missing'}, CORPORATE_HQ_ENV_ID={'set' if env_id else 'missing'}"})
+                        "note": "; ".join(reason)})
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
         session = client.beta.agents.sessions.create(
             agent_id=agent_id,
             environment_id=env_id,
         )
         return jsonify({"session_id": session.id, "mode": "managed"})
+    except AttributeError as e:
+        # API shape mismatch — SDK version doesn't match expected API
+        return jsonify({"session_id": "local", "mode": "messages",
+                        "note": f"Agents API not available in SDK: {str(e)}"})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"session_id": "local", "mode": "messages", "note": f"Managed agent failed: {str(e)}"})
@@ -575,7 +591,6 @@ def api_chat():
             # Collect response by polling/streaming events
             reply = ""
             max_polls = 30  # Up to 30 seconds
-            import time
             for _ in range(max_polls):
                 session_state = client.beta.agents.sessions.retrieve(session_id)
 
@@ -856,6 +871,7 @@ DASHBOARD_HTML = r'''<!DOCTYPE html>
    RESET + BASE
    ═══════════════════════════════════════════════════════════════ */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { overflow-x: hidden; }
 
 body {
   background: var(--bg-base);
@@ -1303,7 +1319,7 @@ body {
 }
 @media (max-width: 640px) {
   .bento { grid-template-columns: 1fr; gap: 12px; }
-  .b-hero, .b-side, .b-wide, .b-third, .b-full, .b-half { grid-column: span 1; grid-row: span auto; }
+  .b-hero, .b-side, .b-wide, .b-third, .b-full, .b-half { grid-column: span 1; grid-row: auto; }
   .shell { padding: 10px 12px 40px; }
 
   /* Cards — tighter padding on mobile */
@@ -1368,7 +1384,7 @@ body {
   .skill-card-desc { font-size: 10px; }
 
   /* Force all bento children to single column — override inline span 12 */
-  .bento > * { grid-column: 1 / -1 !important; grid-row: span auto !important; }
+  .bento > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
   .section-header { grid-column: 1 / -1 !important; }
 
   /* Footer */
