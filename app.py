@@ -1090,6 +1090,15 @@ body {
   .topbar { flex-direction: column; gap: 14px; padding: 16px 20px; }
   .topbar-status { flex-wrap: wrap; justify-content: center; }
 }
+@media (max-width: 640px) {
+  .topbar { padding: 14px 16px; gap: 10px; }
+  .topbar-brand { flex-direction: column; text-align: center; gap: 6px; }
+  .topbar-logo { margin: 0 auto; }
+  .topbar-title { font-size: 16px; }
+  .topbar-subtitle { font-size: 9px; letter-spacing: 2px; }
+  .topbar-status { gap: 6px; justify-content: center; }
+  .status-dot { font-size: 9px; padding: 3px 8px; letter-spacing: 0.5px; }
+}
 
 /* ═══════════════════════════════════════════════════════════════
    MIGRATION BANNER — persistent until Booksy is done
@@ -1164,9 +1173,77 @@ body {
   .b-wide, .b-half { grid-column: span 6; }
 }
 @media (max-width: 640px) {
-  .bento { grid-template-columns: 1fr; }
-  .b-hero, .b-side, .b-wide, .b-third, .b-full, .b-half { grid-column: span 1; }
-  .shell { padding: 12px 14px 40px; }
+  .bento { grid-template-columns: 1fr; gap: 12px; }
+  .b-hero, .b-side, .b-wide, .b-third, .b-full, .b-half { grid-column: span 1; grid-row: span auto; }
+  .shell { padding: 10px 12px 40px; }
+
+  /* Cards — tighter padding on mobile */
+  .card { padding: 16px 14px; border-radius: 12px; }
+
+  /* Revenue hero — scale down */
+  .stat-row { flex-wrap: wrap; }
+  .stat-sub { font-size: 11px; line-height: 1.5; }
+
+  /* Metric grid — 2 columns */
+  .metric-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-cell { padding: 8px 6px; }
+
+  /* Council grid — full width */
+  .council-grid { gap: 6px; }
+  .council-row { flex-wrap: wrap; gap: 4px; }
+  .council-cond { font-size: 10px; flex-basis: 100%; padding-left: 28px; }
+
+  /* Tables — horizontal scroll */
+  .intel-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .intel-table th { font-size: 8px; padding: 4px 8px; white-space: nowrap; }
+  .intel-table td { font-size: 11px; padding: 8px; white-space: nowrap; }
+
+  /* Agent grid — single column */
+  .agent-grid { grid-template-columns: 1fr; }
+  .agent-cell { padding: 6px 8px; }
+
+  /* Stat strip (lab counts) — wrap and smaller */
+  .stat-strip { flex-wrap: wrap; gap: 6px; }
+  .stat-chip { min-width: calc(33% - 6px); padding: 8px 6px; }
+  .stat-chip-value { font-size: 16px; }
+  .stat-chip-label { font-size: 8px; letter-spacing: 0.5px; }
+
+  /* Section headers */
+  .section-header { padding: 24px 0 10px; gap: 8px; }
+  .section-title { font-size: 10px; letter-spacing: 2px; }
+
+  /* Migration banner */
+  .migration-banner { flex-direction: column; padding: 10px 14px; gap: 8px; text-align: center; }
+  .migration-banner .label { font-size: 10px; }
+
+  /* Price rows */
+  .price-row { gap: 6px; }
+  .price-name { font-size: 11px; min-width: 60px; }
+  .price-val { font-size: 12px; }
+
+  /* Move rows */
+  .move-row { padding: 8px 0; }
+  .move-who { font-size: 11px; }
+  .move-desc { font-size: 10px; }
+
+  /* R&D project cards */
+  .rnd-project-header { flex-wrap: wrap; gap: 4px; }
+  .rnd-project-title { font-size: 12px; }
+  .rnd-project-desc { font-size: 10px; }
+  .rnd-tag { font-size: 8px; }
+
+  /* Skill cards */
+  .skill-card { padding: 12px; }
+  .skill-card-header { flex-wrap: wrap; gap: 4px; }
+  .skill-card-title { font-size: 12px; }
+  .skill-card-desc { font-size: 10px; }
+
+  /* Force all bento children to single column — override inline span 12 */
+  .bento > * { grid-column: 1 / -1 !important; grid-row: span auto !important; }
+  .section-header { grid-column: 1 / -1 !important; }
+
+  /* Footer */
+  .shell > div:last-child { font-size: 8px !important; letter-spacing: 1px !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
