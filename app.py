@@ -9,7 +9,6 @@ Run:  python app.py
 
 import json
 import os
-import time
 import traceback
 import requests as http_requests
 from flask import Flask, jsonify, render_template_string, request, Response
@@ -18,6 +17,10 @@ from strategy import YOUR_SHOP
 from rnd import init_rnd_schema, _seed_assets, _seed_projects
 from skills import init_skills_schema, _seed_skills
 import anthropic
+from managed_agent import (
+    setup_managed_agent, run_agent_task,
+    create_chat_session, send_chat_message,
+)
 
 app = Flask(__name__)
 
@@ -433,55 +436,11 @@ def api_warehouse_table(table_name):
 
 
 # ════════════════════════════════════════════════════════════════════════
-#  AI CHAT ASSISTANT — Claude Managed Agent with warehouse access
+#  AI CHAT ASSISTANT — Claude Managed Agent + Messages API fallback
 # ════════════════════════════════════════════════════════════════════════
 
-# Custom tool definitions for the managed agent
-CHAT_TOOLS = [
-    {
-        "type": "custom",
-        "name": "query_warehouse",
-        "description": (
-            "Execute a read-only SQL query against the DuckDB warehouse. "
-            "Tables: competitors, price_history, review_snapshots, competitor_social, "
-            "competitor_moves, barbers, neighborhoods, alerts_log, agent_runs, rnd_projects, skills. "
-            "Use DuckDB SQL syntax. QUALIFY ROW_NUMBER() for latest records. Single quotes for strings."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "sql": {
-                    "type": "string",
-                    "description": "The SQL SELECT query to execute"
-                }
-            },
-            "required": ["sql"]
-        }
-    },
-    {
-        "type": "custom",
-        "name": "read_agent_logs",
-        "description": "Read recent agent run logs to see what data collection has happened and when agents last ran.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "agent_name": {
-                    "type": "string",
-                    "description": "Optional: filter by agent name. Leave empty for all recent runs."
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Number of recent runs to return (default 10)"
-                }
-            },
-            "required": []
-        }
-    }
-]
-
-
 def _execute_chat_tool(tool_name, tool_input):
-    """Execute a custom tool call from the managed agent."""
+    """Execute a tool call for the Messages API fallback."""
     if tool_name == "query_warehouse":
         sql = tool_input.get("sql", "")
         stripped = sql.strip().upper()
@@ -514,56 +473,47 @@ def _execute_chat_tool(tool_name, tool_input):
     return {"error": f"Unknown tool: {tool_name}"}
 
 
-# In-memory session store (session_id -> managed agent session_id)
-_chat_sessions = {}
+@app.route("/api/setup-agent", methods=["POST"])
+def api_setup_agent():
+    """One-time setup: create agent + environment, return IDs for Railway env vars."""
+    agent_id, env_id, error = setup_managed_agent()
+    if error:
+        return jsonify({"error": error}), 500
+    return jsonify({
+        "agent_id": agent_id,
+        "env_id": env_id,
+        "note": "Save these as CORPORATE_HQ_AGENT_ID and CORPORATE_HQ_ENV_ID in Railway."
+    })
+
+
+@app.route("/api/run-agent", methods=["POST"])
+def api_run_agent():
+    """Run a managed agent task. POST {task: "..."}."""
+    body = request.get_json(silent=True) or {}
+    task = body.get("task", "").strip()
+    if not task:
+        return jsonify({"error": "No task provided."}), 400
+    result = run_agent_task(task)
+    if "error" in result:
+        return jsonify(result), 500
+    return jsonify(result)
 
 
 @app.route("/api/chat/session", methods=["POST"])
 def api_chat_session():
-    """Create a new managed agent session for the chat widget."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    agent_id = os.environ.get("CORPORATE_HQ_AGENT_ID", "")
-    env_id = os.environ.get("CORPORATE_HQ_ENV_ID", "")
-
-    if not api_key:
-        return jsonify({"error": "ANTHROPIC_API_KEY not configured."}), 500
-
-    # Check if SDK supports managed agents
-    client = anthropic.Anthropic(api_key=api_key)
-    has_agents = hasattr(client, 'beta') and hasattr(client.beta, 'agents')
-
-    if not agent_id or not env_id or not has_agents:
-        reason = []
-        if not agent_id:
-            reason.append("CORPORATE_HQ_AGENT_ID not set")
-        if not env_id:
-            reason.append("CORPORATE_HQ_ENV_ID not set")
-        if not has_agents:
-            reason.append(f"SDK v{getattr(anthropic, '__version__', '?')} lacks agents API")
-        return jsonify({"session_id": "local", "mode": "messages",
-                        "note": "; ".join(reason)})
-
-    try:
-        session = client.beta.agents.sessions.create(
-            agent_id=agent_id,
-            environment_id=env_id,
-        )
-        return jsonify({"session_id": session.id, "mode": "managed"})
-    except AttributeError as e:
-        # API shape mismatch — SDK version doesn't match expected API
-        return jsonify({"session_id": "local", "mode": "messages",
-                        "note": f"Agents API not available in SDK: {str(e)}"})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"session_id": "local", "mode": "messages", "note": f"Managed agent failed: {str(e)}"})
+    """Create a managed agent session for the chat widget."""
+    result = create_chat_session()
+    if "error" in result:
+        return jsonify(result), 500
+    return jsonify(result)
 
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
-    """AI chat endpoint — routes to managed agent or Messages API fallback."""
+    """AI chat endpoint — managed agent session or Messages API fallback."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        return jsonify({"error": "ANTHROPIC_API_KEY not configured. Set it in your environment variables."}), 500
+        return jsonify({"error": "ANTHROPIC_API_KEY not configured."}), 500
 
     body = request.get_json(silent=True) or {}
     user_message = body.get("message", "").strip()
@@ -574,63 +524,14 @@ def api_chat():
     if not user_message:
         return jsonify({"error": "No message provided."}), 400
 
-    client = anthropic.Anthropic(api_key=api_key)
-
     # ── MANAGED AGENT MODE ──
+    # Uses correct SDK paths: client.beta.sessions.stream() / events.send()
     if mode == "managed" and session_id and session_id != "local":
-        try:
-            # Send user message to the managed session
-            client.beta.agents.sessions.events.create(
-                session_id=session_id,
-                events=[{
-                    "type": "user_message",
-                    "content": [{"type": "text", "text": user_message}],
-                }],
-            )
-
-            # Collect response by polling/streaming events
-            reply = ""
-            max_polls = 30  # Up to 30 seconds
-            for _ in range(max_polls):
-                session_state = client.beta.agents.sessions.retrieve(session_id)
-
-                # Process any pending tool calls
-                if session_state.status == "requires_input":
-                    # Handle custom tool calls
-                    for tool_call in (session_state.pending_tool_calls or []):
-                        result = _execute_chat_tool(tool_call.name, tool_call.input)
-                        client.beta.agents.sessions.events.create(
-                            session_id=session_id,
-                            events=[{
-                                "type": "tool_result",
-                                "tool_use_id": tool_call.id,
-                                "content": json.dumps(result, default=str),
-                            }],
-                        )
-                    continue
-
-                if session_state.status == "idle":
-                    # Get the latest assistant message
-                    events = client.beta.agents.sessions.events.list(session_id=session_id)
-                    for event in reversed(list(events)):
-                        if hasattr(event, 'type') and event.type == "agent_message":
-                            for block in (event.content or []):
-                                if hasattr(block, 'text'):
-                                    reply += block.text
-                            break
-                    break
-
-                time.sleep(1)
-
-            if reply:
-                return jsonify({"reply": reply, "mode": "managed"})
-            else:
-                return jsonify({"reply": "I processed your request but had no text response. Try asking again.", "mode": "managed"})
-
-        except Exception as e:
-            traceback.print_exc()
-            # Fall through to Messages API as fallback
-            mode = "messages"
+        result = send_chat_message(session_id, user_message)
+        if "error" not in result:
+            return jsonify(result)
+        # Fall through to Messages API on error
+        mode = "messages"
 
     # ── MESSAGES API FALLBACK ──
     system_prompt = """You are the Corporate HQ AI Assistant for a barbershop business in Charlotte, NC (South Park area, zip 28210).
@@ -640,7 +541,7 @@ You are talking to William, the owner. He charges $40-65 per cut and is building
 YOUR ROLE:
 - Answer questions about his business using real data from the warehouse
 - Speak in plain, direct business language — no developer jargon, no corporate buzzwords
-- If the data doesn't exist yet, say so honestly. Never make up numbers.
+- If the data does not exist yet, say so honestly. Never make up numbers.
 - Keep answers concise and actionable
 
 WHAT YOU HAVE ACCESS TO:
@@ -681,6 +582,7 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
         }
     ]
 
+    client = anthropic.Anthropic(api_key=api_key)
     messages = []
     for h in history[-20:]:
         messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
@@ -688,7 +590,7 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=1024,
             system=system_prompt,
             tools=fallback_tools,
@@ -699,7 +601,6 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
             if response.stop_reason != "tool_use":
                 break
             tool_results = []
-            # Serialize assistant content for the message history
             assistant_content = []
             for block in response.content:
                 if block.type == "tool_use":
@@ -723,7 +624,7 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
             messages.append({"role": "assistant", "content": assistant_content})
             messages.append({"role": "user", "content": tool_results})
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-6",
                 max_tokens=1024,
                 system=system_prompt,
                 tools=fallback_tools,
@@ -734,11 +635,9 @@ When querying, always use DuckDB SQL syntax. Use QUALIFY ROW_NUMBER() for latest
         for block in response.content:
             if block.type == "text":
                 reply += block.text
-            elif hasattr(block, "text") and block.text:
-                reply += block.text
 
         if not reply:
-            reply = "I processed your request but couldn't generate a text response. Try rephrasing your question."
+            reply = "I processed your request but could not generate a text response. Try rephrasing your question."
 
         return jsonify({"reply": reply, "mode": "messages"})
 
