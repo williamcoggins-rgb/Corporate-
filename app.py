@@ -18,7 +18,7 @@ from rnd import init_rnd_schema, _seed_assets, _seed_projects
 from skills import init_skills_schema, _seed_skills
 import anthropic
 from managed_agent import (
-    setup_managed_agent, run_agent_task,
+    setup_managed_agent, update_managed_agent, run_agent_task,
     create_chat_session, send_chat_message,
 )
 
@@ -499,6 +499,22 @@ def api_setup_agent():
         "agent_id": agent_id,
         "env_id": env_id,
         "note": "Save these as CORPORATE_HQ_AGENT_ID and CORPORATE_HQ_ENV_ID in Railway."
+    })
+
+
+@app.route("/api/update-agent", methods=["POST"])
+def api_update_agent():
+    """Push the current system prompt + custom tools to the existing agent.
+
+    Run this after deploying code that changes CUSTOM_TOOLS or the system
+    prompt — the live agent keeps its old config until updated.
+    """
+    version, error = update_managed_agent()
+    if error:
+        return jsonify({"error": error}), 500
+    return jsonify({
+        "agent_version": version,
+        "note": "Agent updated. New sessions will have the warehouse tools."
     })
 
 

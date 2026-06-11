@@ -356,6 +356,43 @@ def setup_managed_agent():
         return None, None, str(e)
 
 
+def update_managed_agent(agent_id: str = None):
+    """Apply the current system prompt + custom tools to an existing agent.
+
+    Agents are persistent, versioned objects — tools set at creation stick
+    until updated. Run this after changing AGENT_SYSTEM_PROMPT or CUSTOM_TOOLS
+    so the live agent picks up the new config. New sessions then use the
+    updated version automatically.
+
+    Returns (new_version, error).
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    agent_id = agent_id or os.environ.get("CORPORATE_HQ_AGENT_ID", "")
+
+    if not api_key:
+        return None, "ANTHROPIC_API_KEY not set"
+    if not agent_id:
+        return None, "CORPORATE_HQ_AGENT_ID not set"
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    try:
+        current = client.beta.agents.retrieve(agent_id)
+        updated = client.beta.agents.update(
+            agent_id=agent_id,
+            version=current.version,
+            system=AGENT_SYSTEM_PROMPT,
+            tools=[
+                {"type": "agent_toolset_20260401", "default_config": {"enabled": True}},
+            ] + CUSTOM_TOOLS,
+        )
+        return updated.version, None
+
+    except Exception as e:
+        traceback.print_exc()
+        return None, str(e)
+
+
 # ════════════════════════════════════════════════════════════════════════
 #  PER-RUN — called each time an agent task is triggered
 # ════════════════════════════════════════════════════════════════════════
