@@ -254,12 +254,14 @@ SQL TIPS:
 def _stream_with_tools(client, session_id, initial_events, max_rounds=10):
     """Stream a managed agent session, executing custom tools locally.
 
-    Opens an SSE stream, sends events, and collects reply text.
-    When the agent calls a custom tool (requires_action), we:
-      1. Execute the tool locally against DuckDB
-      2. Send the result back as user.custom_tool_result
+    Custom tool calls arrive as standalone `agent.custom_tool_use` events
+    (NOT as blocks inside agent.message — those are text-only). When the
+    session goes idle with stop_reason `requires_action`, we:
+      1. Execute each pending tool locally against DuckDB
+      2. Send results back as `user.custom_tool_result` events, referencing
+         the custom_tool_use event id, with content as a list of text blocks
       3. Open a new stream to collect the agent's next response
-    Repeats until the session goes idle or hits max_rounds.
+    Repeats until the session idles with end_turn or hits max_rounds.
     """
     reply_parts = []
     events_to_send = initial_events
@@ -275,24 +277,33 @@ def _stream_with_tools(client, session_id, initial_events, max_rounds=10):
             )
 
             for event in stream:
-                if event.type == "agent.message":
-                    for block in (event.content or []):
-                        if hasattr(block, "text") and block.text:
-                            reply_parts.append(block.text)
-                        if getattr(block, "type", "") == "tool_use":
-                            pending_tool_calls.append({
-                                "id": block.id,
-                                "name": block.name,
-                                "input": block.input if hasattr(block, "input") else {},
-                            })
+                etype = getattr(event, "type", "")
 
-                elif event.type == "session.status_idle":
+                if etype == "agent.message":
+                    # Content is a list of text blocks only
+                    for block in (event.content or []):
+                        if getattr(block, "text", None):
+                            reply_parts.append(block.text)
+
+                elif etype == "agent.custom_tool_use":
+                    pending_tool_calls.append({
+                        "event_id": event.id,
+                        "name": event.name,
+                        "input": event.input or {},
+                    })
+
+                elif etype == "session.status_idle":
                     sr = getattr(event, "stop_reason", None)
-                    if sr and getattr(sr, "type", "") == "requires_action" and pending_tool_calls:
+                    if getattr(sr, "type", "") == "requires_action" and pending_tool_calls:
                         needs_another_round = True
                     break
 
-                elif event.type == "session.status_terminated":
+                elif etype == "session.status_terminated":
+                    break
+
+                elif etype == "session.error":
+                    err = getattr(event, "error", None)
+                    log.error(f"Session error: {err}")
                     break
 
         if not needs_another_round:
@@ -304,8 +315,9 @@ def _stream_with_tools(client, session_id, initial_events, max_rounds=10):
             result = _execute_tool(tc["name"], tc["input"])
             result_events.append({
                 "type": "user.custom_tool_result",
-                "tool_use_id": tc["id"],
-                "content": json.dumps(result, default=str),
+                "custom_tool_use_id": tc["event_id"],
+                "content": [{"type": "text", "text": json.dumps(result, default=str)}],
+                "is_error": isinstance(result, dict) and "error" in result,
             })
         events_to_send = result_events
 
