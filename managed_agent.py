@@ -11,7 +11,7 @@ Correct SDK method paths (beta namespace):
   client.beta.agents.create()
   client.beta.sessions.create(agent=AGENT_ID, environment_id=ENV_ID)
   client.beta.sessions.events.send(session_id=..., events=[...])
-  client.beta.sessions.stream(session_id=...)
+  client.beta.sessions.events.stream(session_id=...)
 """
 
 import json
@@ -268,7 +268,7 @@ def _stream_with_tools(client, session_id, initial_events, max_rounds=10):
         pending_tool_calls = []
         needs_another_round = False
 
-        with client.beta.sessions.stream(session_id=session_id) as stream:
+        with client.beta.sessions.events.stream(session_id=session_id) as stream:
             client.beta.sessions.events.send(
                 session_id=session_id,
                 events=events_to_send,

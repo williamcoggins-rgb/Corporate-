@@ -541,7 +541,7 @@ def api_chat():
         return jsonify({"error": "No message provided."}), 400
 
     # ── MANAGED AGENT MODE ──
-    # Uses correct SDK paths: client.beta.sessions.stream() / events.send()
+    # Uses correct SDK paths: client.beta.sessions.events.stream() / events.send()
     if mode == "managed" and session_id and session_id != "local":
         result = send_chat_message(session_id, user_message)
         if "error" not in result:
