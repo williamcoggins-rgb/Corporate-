@@ -23,6 +23,7 @@ from managed_agent import (
 )
 
 app = Flask(__name__)
+_scheduler = None
 
 # Auto-initialize DB + seed data if empty (needed for Railway/fresh deploys)
 def _ensure_db():
@@ -61,6 +62,13 @@ def _ensure_db():
         pass  # Skills is optional
 
 _ensure_db()
+
+# Start the scheduler (APScheduler cron jobs for agent tiers)
+try:
+    from scheduler import init_scheduler, get_schedule_status
+    _scheduler = init_scheduler(app)
+except Exception:
+    pass  # Scheduler is optional — runs without APScheduler
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -386,6 +394,14 @@ def api_pricing():
         ORDER BY ph.service_name, ph.price DESC
     """)
     return jsonify(rows)
+
+
+@app.route("/api/schedule")
+def api_schedule():
+    """Return the current scheduler status and upcoming jobs."""
+    if _scheduler:
+        return jsonify(get_schedule_status(_scheduler))
+    return jsonify({"status": "not_running", "jobs": [], "note": "APScheduler not initialized"})
 
 
 # ════════════════════════════════════════════════════════════════════════
