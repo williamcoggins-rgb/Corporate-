@@ -3129,7 +3129,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let chatSessionId = null;
   let chatMode = 'messages';
 
-  // Toggle panel — create session on first open
+  // Toggle panel — session is warmed at page load; retry here if it failed
   chatFab.addEventListener('click', () => {
     const open = chatPanel.classList.toggle('visible');
     chatFab.classList.toggle('open', open);
@@ -3140,22 +3140,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Initialize managed agent session
+  let sessionReady = null;
+
+  function updateModeLabel(mode) {
+    const label = mode === 'managed' ? 'Connected to HQ Agent' : 'Ask anything about your business';
+    document.querySelector('.chat-header-sub').textContent = label;
+  }
+
+  // Initialize managed agent session — returns a promise sendMessage can await
   function initSession() {
-    fetch('/api/chat/session', {method: 'POST', headers: {'Content-Type': 'application/json'}})
+    sessionReady = fetch('/api/chat/session', {method: 'POST', headers: {'Content-Type': 'application/json'}})
     .then(r => r.json())
     .then(data => {
       chatSessionId = data.session_id;
       chatMode = data.mode || 'messages';
-      const modeLabel = chatMode === 'managed' ? 'Connected to HQ Agent' : 'Ask anything about your business';
-      document.querySelector('.chat-header-sub').textContent = modeLabel;
+      updateModeLabel(chatMode);
       if (data.note) console.log('Chat session note:', data.note);
     })
     .catch(() => {
       chatSessionId = 'local';
       chatMode = 'messages';
     });
+    return sessionReady;
   }
+
+  // Warm the session at page load so the first message uses the managed agent
+  initSession();
 
   // Send message
   function sendMessage(text) {
@@ -3175,7 +3185,8 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMessages.appendChild(loader);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    fetch('/api/chat', {
+    // Wait for session init so the first message doesn't race past it
+    (sessionReady || initSession()).then(() => fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -3184,13 +3195,16 @@ document.addEventListener('DOMContentLoaded', () => {
         session_id: chatSessionId,
         mode: chatMode
       })
-    })
+    }))
     .then(r => r.json())
     .then(data => {
       loader.remove();
       if (data.error) {
         appendMsg('assistant', 'Error: ' + data.error);
       } else {
+        if (data.mode && data.mode !== chatMode) {
+          console.log('Reply served by ' + data.mode + ' fallback (session mode: ' + chatMode + ')');
+        }
         appendMsg('assistant', data.reply, true);
         chatHistory.push({role: 'assistant', content: data.reply});
       }
