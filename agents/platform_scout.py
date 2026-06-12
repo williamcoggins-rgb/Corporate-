@@ -175,43 +175,37 @@ class PlatformScout(BaseAgent):
         return cid
 
     def execute(self):
-        """Main scout run — override with actual data collection logic."""
-        self.log("Platform Scout ready.")
-        self.log(f"Tracking {len(TRACKED_PLATFORMS)} platforms: {', '.join(TRACKED_PLATFORMS)}")
-        self.log(f"Monitoring {len(TARGET_ZIPS)} target zip codes")
-        weak = self._get_weak_zips()
-        if weak:
-            self.log(f"Weak coverage zips (<=1 shop): {', '.join(sorted(weak))}")
+        """Collect platform profiles via managed agent web search."""
+        from managed_agent import run_agent_task
 
-        # ── Booksy scrape ──────────────────────────────────────────
-        try:
-            from agents.booksy_scraper import BooksyScraper
-            booksy = BooksyScraper()
-            results = booksy.run()
-            for biz in results.get("solo_barbers", []):
-                self.record_solo_barber(
-                    barber_name=biz.get("name", "Unknown"),
-                    platform="Booksy",
-                    zip_code=biz.get("zip_code", ""),
-                    neighborhood=biz.get("neighborhood"),
-                    rating=biz.get("rating"),
-                    review_count=biz.get("review_count", 0),
-                    profile_url=biz.get("profile_url"),
-                    specialties=biz.get("specialties"),
-                    price_range=biz.get("price_range"),
-                    instagram_handle=biz.get("instagram_handle"),
-                    notes=biz.get("notes"),
-                )
-            for biz in results.get("competitors", []):
-                cid = self._get_or_create_competitor(biz.get("name", "Unknown"))
-                self.record_platform_profile(
-                    competitor_id=cid,
-                    platform="Booksy",
-                    rating=biz.get("rating"),
-                    review_count=biz.get("review_count", 0),
-                    profile_url=biz.get("profile_url"),
-                    accepts_online_booking=True,
-                )
-            self.log(f"Booksy scrape complete: {len(results.get('solo_barbers', []))} solo barbers, {len(results.get('competitors', []))} shops")
-        except Exception as e:
-            self.log(f"Booksy scrape failed: {e}")
+        con = get_connection()
+        before_profiles = con.execute("SELECT COUNT(*) FROM platform_profiles").fetchone()[0]
+        before_solo = con.execute("SELECT COUNT(*) FROM platform_solo_barbers").fetchone()[0]
+        con.close()
+
+        zips_str = ", ".join(TARGET_ZIPS[:10])
+        result = run_agent_task(
+            "You are running a focused booking platform scan for Charlotte NC "
+            "barbershops. Search Booksy, StyleSeat, and Vagaro for barber "
+            f"profiles in these zip codes: {zips_str}. "
+            "Record what you find using record_platform_presence with a "
+            "profiles array (each entry: competitor_name, platform, rating, "
+            "review_count, profile_url, accepts_online_booking) and a "
+            "solo_barbers array (each entry: barber_name, platform, zip_code, "
+            "rating, review_count, profile_url). Target at least 5 profiles. "
+            "Only record data you actually found — never fabricate."
+        )
+
+        if "error" in result:
+            self.log(f"Collection session unavailable: {result['error']}")
+            return
+
+        con = get_connection()
+        after_profiles = con.execute("SELECT COUNT(*) FROM platform_profiles").fetchone()[0]
+        after_solo = con.execute("SELECT COUNT(*) FROM platform_solo_barbers").fetchone()[0]
+        con.close()
+
+        new_profiles = after_profiles - before_profiles
+        new_solo = after_solo - before_solo
+        self.records_processed = new_profiles + new_solo
+        self.log(f"Collected {new_profiles} platform profiles + {new_solo} solo barbers via web search")

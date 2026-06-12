@@ -39,13 +39,13 @@ log = logging.getLogger("corporate_hq_scheduler")
 
 def run_tier1():
     log.info("▶ TIER 1 — Scout cycle starting")
-    session_id = launch_session("tier1")
-    if session_id:
-        log.info(f"  ✓ Tier 1 session launched: {session_id}")
-        _schedule_tier2_followup()
-    else:
-        log.warning("  ✗ Tier 1 session failed to launch")
-    return session_id
+    from agents.runner import run_tier
+    results = run_tier("tier1")
+    completed = sum(1 for v in results.values() if v == "completed")
+    total = len(results)
+    log.info(f"  ✓ Tier 1 complete: {completed}/{total} scouts finished")
+    _schedule_tier2_followup()
+    return results
 
 
 def run_tier2():

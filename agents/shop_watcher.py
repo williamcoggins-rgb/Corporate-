@@ -118,6 +118,31 @@ class ShopWatcher(BaseAgent):
         return False
 
     def execute(self):
-        self.log("Shop Watcher ready. Use record_status_change() and record_new_competitor().")
-        if self.your_zip:
-            self.log(f"Monitoring proximity to ZIP {self.your_zip}")
+        """Collect shop status changes via managed agent web search."""
+        from managed_agent import run_agent_task
+
+        con = get_connection()
+        before = con.execute("SELECT COUNT(*) FROM competitor_moves").fetchone()[0]
+        con.close()
+
+        result = run_agent_task(
+            "You are running a focused shop status scan for Charlotte NC "
+            "barbershops. Search the web for any newly opened, recently "
+            "closed, relocating, remodeling, or expanding barbershops. Also "
+            "look for ownership changes and rebrands. Record findings using "
+            "record_shop_intel with kind='status_change', the shop name, "
+            "change_type (New Location, Closure, Expansion, Remodel, Hours "
+            "Change, Ownership Change, or Rebrand), and a description. Only "
+            "report events you actually found — never fabricate."
+        )
+
+        if "error" in result:
+            self.log(f"Collection session unavailable: {result['error']}")
+            return
+
+        con = get_connection()
+        after = con.execute("SELECT COUNT(*) FROM competitor_moves").fetchone()[0]
+        con.close()
+
+        self.records_processed = after - before
+        self.log(f"Collected {self.records_processed} shop status updates via web search")

@@ -146,5 +146,30 @@ class SocialListener(BaseAgent):
         return [dict(zip(columns, row)) for row in rows]
 
     def execute(self):
-        self.log("Social Listener ready. Use record_social_snapshot() and analyze_post() to feed data.")
-        self.log(f"Monitoring for promos ({len(PROMO_KEYWORDS)} keywords) and viral thresholds")
+        """Collect social media metrics via managed agent web search."""
+        from managed_agent import run_agent_task
+
+        con = get_connection()
+        before = con.execute("SELECT COUNT(*) FROM competitor_social").fetchone()[0]
+        con.close()
+
+        result = run_agent_task(
+            "You are running a focused social media scan for Charlotte NC "
+            "barbershops. Search for their Instagram, TikTok, and Facebook "
+            "accounts. Record follower counts and engagement using "
+            "record_social (one call per shop, with a snapshots array where "
+            "each entry has: platform, followers, and engagement_rate if "
+            "visible). Target at least 5 different shops. Only record numbers "
+            "you actually found — never fabricate."
+        )
+
+        if "error" in result:
+            self.log(f"Collection session unavailable: {result['error']}")
+            return
+
+        con = get_connection()
+        after = con.execute("SELECT COUNT(*) FROM competitor_social").fetchone()[0]
+        con.close()
+
+        self.records_processed = after - before
+        self.log(f"Collected {self.records_processed} social snapshots via web search")

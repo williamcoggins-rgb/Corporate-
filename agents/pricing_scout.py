@@ -251,8 +251,31 @@ class PricingScout(BaseAgent):
         return [dict(zip(columns, row)) for row in rows]
 
     def execute(self):
-        """Main scout run — override with actual data collection logic."""
-        self.log("Pricing Scout ready. Use record_price() or bulk_record_prices() to feed data.")
-        self.log(f"Tracking {len(TRACKED_SERVICES)} standard services")
-        if self.your_prices:
-            self.log(f"Monitoring undercuts against {len(self.your_prices)} of your prices")
+        """Collect prices via managed agent web search."""
+        from managed_agent import run_agent_task
+
+        con = get_connection()
+        before = con.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        con.close()
+
+        result = run_agent_task(
+            "You are running a focused price collection sweep for Charlotte NC "
+            "barbershops. Search the web for current service prices — fades, "
+            "haircuts, beard trims, combos, shaves, line-ups. Check Booksy "
+            "listings, Google Business profiles, and shop websites. Record "
+            "every real price you find using record_prices (one call per shop, "
+            "with a prices dict of {service_name: dollar_amount}). Target at "
+            "least 5 different shops. Only record prices you actually found in "
+            "search results — never invent data."
+        )
+
+        if "error" in result:
+            self.log(f"Collection session unavailable: {result['error']}")
+            return
+
+        con = get_connection()
+        after = con.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        con.close()
+
+        self.records_processed = after - before
+        self.log(f"Collected {self.records_processed} price observations via web search")

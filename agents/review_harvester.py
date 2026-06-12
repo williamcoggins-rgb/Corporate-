@@ -155,6 +155,30 @@ class ReviewHarvester(BaseAgent):
         return False
 
     def execute(self):
-        self.log("Review Harvester ready. Use ingest_review() or bulk_ingest() to feed review data.")
-        self.log(f"Tracking {len(POSITIVE_KEYWORDS)} positive, {len(NEGATIVE_KEYWORDS)} negative, "
-                 f"{len(TALENT_KEYWORDS)} talent keywords")
+        """Collect reviews via managed agent web search."""
+        from managed_agent import run_agent_task
+
+        con = get_connection()
+        before = con.execute("SELECT COUNT(*) FROM review_snapshots").fetchone()[0]
+        con.close()
+
+        result = run_agent_task(
+            "You are running a focused review collection sweep for Charlotte NC "
+            "barbershops. Search the web for recent customer reviews on Google, "
+            "Yelp, and Booksy. Record them using record_reviews with the shop "
+            "name, and a reviews array where each entry has: platform (Google, "
+            "Yelp, or Booksy), rating (1-5), review_text, and reviewer_name "
+            "when available. Target at least 5 different shops. Only record "
+            "reviews you actually found — never fabricate."
+        )
+
+        if "error" in result:
+            self.log(f"Collection session unavailable: {result['error']}")
+            return
+
+        con = get_connection()
+        after = con.execute("SELECT COUNT(*) FROM review_snapshots").fetchone()[0]
+        con.close()
+
+        self.records_processed = after - before
+        self.log(f"Collected {self.records_processed} reviews via web search")
