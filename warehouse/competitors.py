@@ -1,6 +1,130 @@
 """CRUD operations for competitor records."""
 
+import re
+
 from warehouse.db import get_connection
+
+
+# Charlotte ZIP → primary neighborhood, covering every ZIP in our coverage area.
+# Used to resolve shops discovered with a ZIP but no neighborhood.
+ZIP_NEIGHBORHOODS = {
+    "28202": "Uptown",
+    "28203": "South End",
+    "28204": "Cherry",
+    "28205": "Plaza Midwood",
+    "28206": "North Charlotte",
+    "28207": "Myers Park",
+    "28208": "West Charlotte",
+    "28209": "Madison Park",
+    "28210": "SouthPark",
+    "28211": "SouthPark",
+    "28212": "Independence Blvd",
+    "28213": "University City",
+    "28214": "West Charlotte",
+    "28215": "Plaza-Eastway",
+    "28216": "Beatties Ford",
+    "28217": "Yorkmount",
+    "28226": "Carmel",
+    "28262": "University City",
+    "28269": "Highland Creek",
+    "28270": "Ballantyne",
+    "28273": "South Tryon",
+    "28277": "Ballantyne",
+    "28278": "Steele Creek",
+    "28134": "Pineville",
+    "28027": "Concord Mills",
+    "28078": "Cornelius",
+    "28031": "Cornelius",
+    "28036": "Davidson",
+    "28105": "Matthews",
+}
+
+# Neighborhood keywords found in shop names / addresses, checked before the
+# ZIP map because a name mention is the most specific location signal
+# (e.g. "Modern Classics Villa Heights" is Villa Heights, not generic 28205).
+# Ordered most-specific first; matched on word boundaries.
+NEIGHBORHOOD_KEYWORDS = [
+    ("villa heights", "Villa Heights"),
+    ("plaza midwood", "Plaza Midwood"),
+    ("midwood", "Plaza Midwood"),
+    ("noda", "NoDa"),
+    ("south end", "South End"),
+    ("southend", "South End"),
+    ("uptown", "Uptown"),
+    ("beatties ford", "Beatties Ford"),
+    ("mosaic", "Mosaic Village"),
+    ("wilkinson", "Wilkinson Blvd"),
+    ("northlake", "Northlake"),
+    ("eastland", "Eastland"),
+    ("steele creek", "Steele Creek"),
+    ("university city", "University City"),
+    ("south park", "SouthPark"),
+    ("southpark", "SouthPark"),
+    ("ballantyne", "Ballantyne"),
+    ("myers park", "Myers Park"),
+    ("dilworth", "Dilworth"),
+    ("cotswold", "Cotswold"),
+    ("madison park", "Madison Park"),
+    ("hidden valley", "Hidden Valley"),
+    ("highland creek", "Highland Creek"),
+    ("mallard creek", "Mallard Creek"),
+    ("pineville", "Pineville"),
+    ("matthews", "Matthews"),
+    ("cornelius", "Cornelius"),
+    ("davidson", "Davidson"),
+    ("huntersville", "Huntersville"),
+    ("concord", "Concord Mills"),
+]
+
+
+def resolve_neighborhood(neighborhood=None, zip_code=None, company_name=None,
+                         hq_location=None):
+    """Resolve the best real neighborhood for a competitor.
+
+    Order: existing neighborhood if present, then a neighborhood keyword in
+    the shop name or address (most specific signal), then the ZIP map.
+    Returns None when there is genuinely no location signal.
+    """
+    if neighborhood and str(neighborhood).strip():
+        return str(neighborhood).strip()
+
+    text = f"{company_name or ''} {hq_location or ''}".lower()
+    if text.strip():
+        for keyword, hood in NEIGHBORHOOD_KEYWORDS:
+            if re.search(r"\b" + re.escape(keyword) + r"\b", text):
+                return hood
+
+    zip5 = str(zip_code or "").strip()[:5]
+    if zip5 in ZIP_NEIGHBORHOODS:
+        return ZIP_NEIGHBORHOODS[zip5]
+
+    # Last resort: a 5-digit ZIP inside the address text
+    zip_in_text = re.search(r"\b(28\d{3})\b", text)
+    if zip_in_text and zip_in_text.group(1) in ZIP_NEIGHBORHOODS:
+        return ZIP_NEIGHBORHOODS[zip_in_text.group(1)]
+
+    return None
+
+
+def backfill_neighborhoods():
+    """Fill blank neighborhood fields using the resolver. Returns count fixed."""
+    con = get_connection()
+    rows = con.execute("""
+        SELECT competitor_id, neighborhood, zip_code, company_name, hq_location
+        FROM competitors
+        WHERE neighborhood IS NULL OR TRIM(neighborhood) = ''
+    """).fetchall()
+    fixed = 0
+    for cid, hood, zip_code, name, hq in rows:
+        resolved = resolve_neighborhood(hood, zip_code, name, hq)
+        if resolved:
+            con.execute(
+                "UPDATE competitors SET neighborhood = ?, updated_at = CURRENT_TIMESTAMP WHERE competitor_id = ?",
+                [resolved, cid],
+            )
+            fixed += 1
+    con.close()
+    return fixed
 
 
 def _rows_to_dicts(cursor):
@@ -14,6 +138,8 @@ def add_competitor(company_name, industry=None, website=None, hq_location=None,
                    primary_clientele=None, founded_year=None, employee_count=None,
                    annual_revenue=None, business_model=None, notes=None):
     """Add a new competitor to the warehouse. Returns the new competitor_id."""
+    if not (neighborhood and str(neighborhood).strip()):
+        neighborhood = resolve_neighborhood(None, zip_code, company_name, hq_location)
     con = get_connection()
     cid = con.execute("SELECT nextval('seq_competitor')").fetchone()[0]
     con.execute("""

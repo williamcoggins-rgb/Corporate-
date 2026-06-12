@@ -61,6 +61,14 @@ def _ensure_db():
     except Exception:
         pass  # Skills is optional
 
+    # Backfill blank neighborhoods from ZIP / name signals (web-search
+    # discovered shops used to land with neighborhood empty)
+    try:
+        from warehouse.competitors import backfill_neighborhoods
+        backfill_neighborhoods()
+    except Exception:
+        pass
+
 _ensure_db()
 
 # Start the scheduler (APScheduler cron jobs for agent tiers)
@@ -224,22 +232,44 @@ def get_dashboard_data():
         "SELECT COALESCE(ROUND(MAX(price), 2), 0) as mx FROM price_history WHERE service_name = 'Fade'"
     )[0]["mx"])
 
-    # Neighborhoods — with real shop counts, avg fade, and density context
+    # Neighborhoods — with real shop counts, avg fade, and density context.
+    # Each shop's neighborhood is resolved from its record, ZIP, or name so
+    # web-search-discovered shops land in their real area, never "Unknown".
+    from warehouse.competitors import resolve_neighborhood
+    PENDING_ZONE = "Location pending — agents still verifying"
     your_neighborhood = YOUR_SHOP.get("neighborhood", "")
     your_fade = YOUR_SHOP.get("prices", {}).get("Fade", 0)
-    d["neighborhoods"] = _q("""
-        SELECT c.neighborhood, COUNT(DISTINCT c.competitor_id) as shops,
-               ROUND(AVG(ph.price), 2) as avg_fade
+    _shop_rows = _q("""
+        SELECT c.competitor_id, c.neighborhood, c.zip_code, c.company_name,
+               c.hq_location, AVG(ph.price) as fade_price
         FROM competitors c
         LEFT JOIN price_history ph ON ph.competitor_id = c.competitor_id
             AND ph.service_name = 'Fade'
         WHERE c.status = 'Active'
-        GROUP BY c.neighborhood
-        ORDER BY shops DESC
+        GROUP BY c.competitor_id, c.neighborhood, c.zip_code, c.company_name,
+                 c.hq_location
     """)
+    _zones = {}
+    for r in _shop_rows:
+        hood = resolve_neighborhood(
+            r["neighborhood"], r["zip_code"], r["company_name"], r["hq_location"]
+        ) or PENDING_ZONE
+        z = _zones.setdefault(hood, {"neighborhood": hood, "shops": 0, "_fades": []})
+        z["shops"] += 1
+        if r["fade_price"]:
+            z["_fades"].append(float(r["fade_price"]))
+    d["neighborhoods"] = []
+    for z in _zones.values():
+        z["avg_fade"] = round(sum(z["_fades"]) / len(z["_fades"]), 2) if z["_fades"] else None
+        z["pending"] = z["neighborhood"] == PENDING_ZONE
+        del z["_fades"]
+        d["neighborhoods"].append(z)
+    d["neighborhoods"].sort(key=lambda z: (z["pending"], -z["shops"]))
     for n in d["neighborhoods"]:
         s = n["shops"]
-        if s == 0:
+        if n["pending"]:
+            n["density"] = "Verifying"
+        elif s == 0:
             n["density"] = "Empty"
         elif s <= 2:
             n["density"] = "Low"
@@ -249,7 +279,10 @@ def get_dashboard_data():
             n["density"] = "Busy"
         else:
             n["density"] = "Packed"
-        n["is_yours"] = (n["neighborhood"] or "").lower() == your_neighborhood.lower()
+        n["is_yours"] = (not n["pending"]) and (
+            (n["neighborhood"] or "").lower().replace(" ", "")
+            == your_neighborhood.lower().replace(" ", "")
+        )
         if n["avg_fade"] and your_fade:
             diff = your_fade - float(n["avg_fade"])
             if diff > 5:
@@ -260,6 +293,13 @@ def get_dashboard_data():
                 n["price_note"] = "Near your price"
         else:
             n["price_note"] = ""
+    # Show the busiest zones plus the pending bucket (always visible so the
+    # collection gap stays on the radar); badge shows the true total
+    d["neighborhood_zones_total"] = len(d["neighborhoods"])
+    d["neighborhoods"] = (
+        [z for z in d["neighborhoods"] if not z["pending"]][:11]
+        + [z for z in d["neighborhoods"] if z["pending"]]
+    )
 
     # Recent moves
     d["recent_moves"] = _q("""
@@ -338,6 +378,9 @@ def get_dashboard_data():
         ORDER BY lt.score DESC LIMIT 8
     """)
     for t in d["top_threats"]:
+        t["neighborhood"] = resolve_neighborhood(
+            t.get("neighborhood"), t.get("zip_code"), t.get("company_name"), None
+        )
         t["reason"] = _shop_threat_reason(t)
 
     # Agent runs
@@ -2294,7 +2337,7 @@ body {
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Neighborhood Breakdown</span>
-        <span class="card-badge badge-teal">{{ data.neighborhoods|length }} ZONES</span>
+        <span class="card-badge badge-teal">{{ data.neighborhood_zones_total }} ZONES</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
         Every Charlotte neighborhood where your agents found competing barbershops, ranked by shop count. Your neighborhood ({{ data.shop.neighborhood }}) is highlighted.
@@ -2310,7 +2353,7 @@ body {
           </tr>
         </thead>
         <tbody>
-          {% for n in data.neighborhoods[:12] %}
+          {% for n in data.neighborhoods %}
           <tr{% if n.is_yours %} style="background: rgba(0,121,107,0.06);"{% endif %}>
             <td style="font-weight: 500;">
               {{ n.neighborhood or 'Unknown' }}{% if n.is_yours %} <span style="font-size: 9px; color: var(--teal); font-weight: 700;">YOU</span>{% endif %}
@@ -2328,7 +2371,7 @@ body {
               {% endif %}
             </td>
             <td>
-              <span class="{% if n.density == 'Packed' %}badge-red{% elif n.density == 'Busy' %}badge-yellow{% elif n.density == 'Low' or n.density == 'Empty' %}badge-green{% else %}badge-teal{% endif %}" style="font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+              <span class="{% if n.density == 'Packed' %}badge-red{% elif n.density == 'Busy' or n.density == 'Verifying' %}badge-yellow{% elif n.density == 'Low' or n.density == 'Empty' %}badge-green{% else %}badge-teal{% endif %}" style="font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
                 {{ n.density }}
               </span>
             </td>
