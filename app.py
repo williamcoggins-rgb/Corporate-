@@ -1032,7 +1032,9 @@ body {
   justify-content: space-between;
   padding: 20px 32px;
   border-radius: var(--radius);
-  position: relative;
+  position: sticky;
+  top: 12px;
+  z-index: 600;
   background: linear-gradient(135deg, rgba(10,10,18,0.95), rgba(15,15,24,0.9));
   border: 1px solid rgba(250,250,250,0.06);
   margin-bottom: 28px;
@@ -1208,9 +1210,80 @@ body {
   50% { opacity: 0.6; transform: scale(0.8); }
 }
 
+/* ── TAB NAVIGATION (Nike-style top bar) ── */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
+}
+.nav-tab {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+.nav-tab::after {
+  content: '';
+  position: absolute;
+  left: 16px; right: 16px; bottom: 4px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--red), var(--teal));
+  border-radius: 2px;
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
+}
+.nav-tab:hover { color: var(--white); }
+.nav-tab:hover::after { transform: scaleX(1); }
+.nav-tab.active { color: var(--white); }
+.nav-tab.active::after { transform: scaleX(1); }
+
+.topbar-assistant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--white);
+  background: linear-gradient(135deg, rgba(46,196,182,0.15), rgba(46,196,182,0.05));
+  border: 1px solid rgba(46,196,182,0.3);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+  z-index: 2;
+}
+.topbar-assistant:hover {
+  background: rgba(46,196,182,0.25);
+  box-shadow: 0 0 16px rgba(46,196,182,0.2);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: tab-fade 0.3s ease; }
+@keyframes tab-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 768px) {
   .topbar { flex-direction: column; gap: 14px; padding: 16px 20px; }
   .topbar-status { flex-wrap: wrap; justify-content: center; }
+  .topbar-nav { gap: 0; }
+  .nav-tab { padding: 8px 10px; font-size: 12px; }
 }
 @media (max-width: 640px) {
   .topbar { padding: 14px 16px; gap: 10px; }
@@ -2176,7 +2249,7 @@ body {
 <!-- DASHBOARD SHELL -->
 <div class="shell">
 
-  <!-- ═══ POWER HEADER ═══ -->
+  <!-- ═══ POWER HEADER — sticky nav ═══ -->
   <div class="topbar">
     <div class="topbar-brand">
       <div class="topbar-logo">HQ</div>
@@ -2185,7 +2258,35 @@ body {
         <div class="topbar-subtitle">Business Intelligence Dashboard</div>
       </div>
     </div>
-    <div class="topbar-status">
+    <nav class="topbar-nav" id="topbarNav">
+      <button class="nav-tab active" data-tab="overview">Overview</button>
+      <button class="nav-tab" data-tab="competitors">Competitors</button>
+      <button class="nav-tab" data-tab="operations">Operations</button>
+      <button class="nav-tab" data-tab="projects">Projects</button>
+      <button class="nav-tab" data-tab="skills">Skills</button>
+    </nav>
+    <button class="topbar-assistant" id="topbarAssistant" title="Open the HQ Assistant chat">&#9993; HQ Assistant</button>
+  </div>
+
+  <!-- ═══ BOOKSY MIGRATION BANNER ═══ -->
+  {% if data.shop.migrating_from %}
+  <div class="migration-banner">
+    <div class="label">Moving Clients from Booksy to Our System</div>
+    <div class="bar-track"><div class="bar-fill"></div></div>
+    <div class="pct">In Progress</div>
+  </div>
+  {% endif %}
+
+  <!-- ═══ TAB: OVERVIEW ═══ -->
+  <div class="tab-panel active" id="tab-overview">
+  <div class="bento">
+
+    <!-- ════════════════════════════════════════════════════════
+         SECTION 01: COMMAND CENTER
+         ════════════════════════════════════════════════════════ -->
+
+    <!-- STATUS STRIP (moved from topbar) -->
+    <div class="topbar-status" style="grid-column: span 12; flex-wrap: wrap;">
       <div class="status-dot">
         <span class="dot dot-yellow"></span>
         Booking System: Planned
@@ -2203,23 +2304,6 @@ body {
         {{ [data.council.strategist.ready, data.council.comptroller.ready, data.council.intel.ready, data.council.operator.ready, data.council.brand.ready]|select|list|length }} of 5 Goals Met
       </div>
     </div>
-  </div>
-
-  <!-- ═══ BOOKSY MIGRATION BANNER ═══ -->
-  {% if data.shop.migrating_from %}
-  <div class="migration-banner">
-    <div class="label">Moving Clients from Booksy to Our System</div>
-    <div class="bar-track"><div class="bar-fill"></div></div>
-    <div class="pct">In Progress</div>
-  </div>
-  {% endif %}
-
-  <!-- ═══ BENTO GRID ═══ -->
-  <div class="bento">
-
-    <!-- ════════════════════════════════════════════════════════
-         SECTION 01: COMMAND CENTER
-         ════════════════════════════════════════════════════════ -->
 
     <!-- HERO CARD — Revenue Command -->
     <div class="card card-glow card-3d b-hero">
@@ -2288,6 +2372,13 @@ body {
         {% endfor %}
       </div>
     </div>
+
+  </div><!-- /bento -->
+  </div><!-- /tab-overview -->
+
+  <!-- ═══ TAB: COMPETITORS ═══ -->
+  <div class="tab-panel" id="tab-competitors">
+  <div class="bento">
 
     <!-- ════════════════════════════════════════════════════════
          SECTION 02: INTELLIGENCE
@@ -2486,6 +2577,13 @@ body {
       {% endif %}
     </div>
 
+  </div><!-- /bento -->
+  </div><!-- /tab-competitors -->
+
+  <!-- ═══ TAB: OPERATIONS ═══ -->
+  <div class="tab-panel" id="tab-operations">
+  <div class="bento">
+
     <!-- ════════════════════════════════════════════════════════
          SECTION 03: OPERATIONS & SYSTEMS
          ════════════════════════════════════════════════════════ -->
@@ -2582,6 +2680,13 @@ body {
       {% endif %}
     </div>
 
+  </div><!-- /bento -->
+  </div><!-- /tab-operations -->
+
+  <!-- ═══ TAB: PROJECTS ═══ -->
+  <div class="tab-panel" id="tab-projects">
+  <div class="bento">
+
     <!-- ════════════════════════════════════════════════════════
          SECTION 04: R&D LABS
          ════════════════════════════════════════════════════════ -->
@@ -2668,6 +2773,13 @@ body {
     </div>
     {% endif %}
     {% endfor %}
+
+  </div><!-- /bento -->
+  </div><!-- /tab-projects -->
+
+  <!-- ═══ TAB: SKILLS ═══ -->
+  <div class="tab-panel" id="tab-skills">
+  <div class="bento">
 
     <!-- ════════════════════════════════════════════════════════
          SECTION 05: SKILLS DEPARTMENT
@@ -2810,6 +2922,7 @@ body {
     {% endfor %}
 
   </div><!-- /bento -->
+  </div><!-- /tab-skills -->
 
   <!-- FOOTER -->
   <div style="text-align: center; padding: 48px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;">
@@ -3080,6 +3193,31 @@ body {
 const DATA = {{ data_json|safe }};
 
 document.addEventListener('DOMContentLoaded', () => {
+
+  // ═══ TAB NAVIGATION ═══
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  function activateTab(name) {
+    navTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    tabPanels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    window.scrollTo({top: 0});
+  }
+  navTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      activateTab(tab.dataset.tab);
+      history.replaceState(null, '', '#' + tab.dataset.tab);
+    });
+  });
+  // Deep-link support: /#competitors opens that tab on load
+  const initialTab = location.hash.replace('#', '');
+  if (initialTab && document.getElementById('tab-' + initialTab)) {
+    activateTab(initialTab);
+  }
+
+  // ═══ TOPBAR ASSISTANT BUTTON — same toggle as the chat FAB ═══
+  document.getElementById('topbarAssistant').addEventListener('click', () => {
+    document.getElementById('chatFab').click();
+  });
 
   // ═══ GENERATE STAR PARTICLES AT VARIOUS DEPTHS ═══
   const starfield = document.getElementById('starfield');
