@@ -543,10 +543,12 @@ def _load_agent_id():
 
 TIER_TASKS = {
     "tier1": (
-        "Run a Tier 1 scout cycle. Use list_tables to check data availability, "
-        "then query_warehouse to assess current competitor coverage — how many "
-        "competitors are tracked, latest pricing data age, review counts, and "
-        "social follower data. Identify any gaps or stale data. Report findings."
+        "Run a Tier 1 scout cycle. First, use run_agent_pipeline with tier1 to "
+        "execute the scout agents (pricing, reviews, social, shops, platforms) and "
+        "collect fresh data into the warehouse. Then use list_tables to check row "
+        "counts, and query_warehouse to assess coverage — how many competitors "
+        "are tracked, latest pricing data age, review counts, and social follower "
+        "data. Identify any gaps or stale data. Report what was collected."
     ),
     "tier2": (
         "Run a Tier 2 processing cycle. Use run_agent_pipeline with tier2 to "

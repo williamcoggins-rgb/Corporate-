@@ -153,6 +153,27 @@ class PlatformScout(BaseAgent):
         con.close()
         return rows
 
+    def _get_or_create_competitor(self, name):
+        """Find an existing competitor by name or create a new record."""
+        con = get_connection()
+        row = con.execute(
+            "SELECT competitor_id FROM competitors WHERE company_name ILIKE ?",
+            [f"%{name}%"],
+        ).fetchone()
+        if row:
+            con.close()
+            return row[0]
+        cid = con.execute("SELECT nextval('seq_competitor')").fetchone()[0]
+        con.execute(
+            """INSERT INTO competitors
+               (competitor_id, company_name, industry, business_model)
+               VALUES (?, ?, 'Barbershop', 'Service')""",
+            [cid, name],
+        )
+        con.close()
+        self.log(f"Created competitor record: {name} (ID: {cid})")
+        return cid
+
     def execute(self):
         """Main scout run — override with actual data collection logic."""
         self.log("Platform Scout ready.")
@@ -164,33 +185,33 @@ class PlatformScout(BaseAgent):
 
         # ── Booksy scrape ──────────────────────────────────────────
         try:
-                        from agents.booksy_scraper import BookSyScraper
-                        booksy = BookSyScraper()
-                        results = booksy.run()
-                        for biz in results.get("solo_barbers", []):
-                                            self.record_solo_barber(
-                                                                    barber_name=biz.get("name", "Unknown"),
-                                                                    platform="Booksy",
-                                                                    zip_code=biz.get("zip_code", ""),
-                                                                    neighborhood=biz.get("neighborhood"),
-                                                                    rating=biz.get("rating"),
-                                                                    review_count=biz.get("review_count", 0),
-                                                                    profile_url=biz.get("profile_url"),
-                                                                    specialties=biz.get("specialties"),
-                                                                    price_range=biz.get("price_range"),
-                                                                    instagram_handle=biz.get("instagram_handle"),
-                                                                    notes=biz.get("notes"),
-                                            )
-                                        for biz in results.get("competitors", []):
-                                                            cid = self._get_or_create_competitor(biz.get("name", "Unknown"))
-                                                            self.record_platform_profile(
-                                                                                    competitor_id=cid,
-                                                                                    platform="Booksy",
-                                                                                    rating=biz.get("rating"),
-                                                                                    review_count=biz.get("review_count", 0),
-                                                                                    profile_url=biz.get("profile_url"),
-                                                                                    accepts_online_booking=True,
-                                                            )
-                                                        self.log(f"Booksy scrape complete: {len(results.get('solo_barbers', []))} solo barbers, {len(results.get('competitors', []))} shops")
-except Exception as e:
-            self.log(f"Booksy scrape failed: {e}", level="error")
+            from agents.booksy_scraper import BooksyScraper
+            booksy = BooksyScraper()
+            results = booksy.run()
+            for biz in results.get("solo_barbers", []):
+                self.record_solo_barber(
+                    barber_name=biz.get("name", "Unknown"),
+                    platform="Booksy",
+                    zip_code=biz.get("zip_code", ""),
+                    neighborhood=biz.get("neighborhood"),
+                    rating=biz.get("rating"),
+                    review_count=biz.get("review_count", 0),
+                    profile_url=biz.get("profile_url"),
+                    specialties=biz.get("specialties"),
+                    price_range=biz.get("price_range"),
+                    instagram_handle=biz.get("instagram_handle"),
+                    notes=biz.get("notes"),
+                )
+            for biz in results.get("competitors", []):
+                cid = self._get_or_create_competitor(biz.get("name", "Unknown"))
+                self.record_platform_profile(
+                    competitor_id=cid,
+                    platform="Booksy",
+                    rating=biz.get("rating"),
+                    review_count=biz.get("review_count", 0),
+                    profile_url=biz.get("profile_url"),
+                    accepts_online_booking=True,
+                )
+            self.log(f"Booksy scrape complete: {len(results.get('solo_barbers', []))} solo barbers, {len(results.get('competitors', []))} shops")
+        except Exception as e:
+            self.log(f"Booksy scrape failed: {e}")
