@@ -130,7 +130,9 @@ def get_dashboard_data():
         "SELECT COALESCE(ROUND(MAX(price), 2), 0) as mx FROM price_history WHERE service_name = 'Fade'"
     )[0]["mx"])
 
-    # Neighborhoods
+    # Neighborhoods — with real shop counts, avg fade, and density context
+    your_neighborhood = YOUR_SHOP.get("neighborhood", "")
+    your_fade = YOUR_SHOP.get("prices", {}).get("Fade", 0)
     d["neighborhoods"] = _q("""
         SELECT c.neighborhood, COUNT(DISTINCT c.competitor_id) as shops,
                ROUND(AVG(ph.price), 2) as avg_fade
@@ -139,8 +141,31 @@ def get_dashboard_data():
             AND ph.service_name = 'Fade'
         WHERE c.status = 'Active'
         GROUP BY c.neighborhood
-        ORDER BY shops ASC
+        ORDER BY shops DESC
     """)
+    for n in d["neighborhoods"]:
+        s = n["shops"]
+        if s == 0:
+            n["density"] = "Empty"
+        elif s <= 2:
+            n["density"] = "Low"
+        elif s <= 4:
+            n["density"] = "Medium"
+        elif s <= 6:
+            n["density"] = "Busy"
+        else:
+            n["density"] = "Packed"
+        n["is_yours"] = (n["neighborhood"] or "").lower() == your_neighborhood.lower()
+        if n["avg_fade"] and your_fade:
+            diff = your_fade - float(n["avg_fade"])
+            if diff > 5:
+                n["price_note"] = f"${abs(diff):.0f} above avg"
+            elif diff < -5:
+                n["price_note"] = f"${abs(diff):.0f} below avg"
+            else:
+                n["price_note"] = "Near your price"
+        else:
+            n["price_note"] = ""
 
     # Recent moves
     d["recent_moves"] = _q("""
@@ -187,14 +212,23 @@ def get_dashboard_data():
         "SELECT COALESCE(ROUND(AVG(rating), 1), 0) as avg FROM review_snapshots"
     )[0]["avg"])
 
-    # Top competitors by threat
+    # Top competitors by threat — latest score per competitor, deduped
     d["top_threats"] = _q("""
-        SELECT c.company_name, c.neighborhood, c.ownership_type,
-               cs.score as threat_score
-        FROM competitor_scores cs
-        JOIN competitors c ON c.competitor_id = cs.competitor_id
-        WHERE cs.score_type = 'threat'
-        ORDER BY cs.score DESC LIMIT 8
+        WITH latest AS (
+            SELECT cs.competitor_id, cs.score, cs.components, cs.scored_at,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY cs.competitor_id
+                       ORDER BY cs.scored_at DESC
+                   ) AS rn
+            FROM competitor_scores cs
+            WHERE cs.score_type = 'threat'
+        )
+        SELECT c.company_name, c.neighborhood, c.zip_code,
+               l.score as threat_score, l.components
+        FROM latest l
+        JOIN competitors c ON c.competitor_id = l.competitor_id
+        WHERE l.rn = 1
+        ORDER BY l.score DESC LIMIT 8
     """)
 
     # Agent runs
@@ -2116,7 +2150,7 @@ body {
         <span class="card-badge badge-teal">{{ data.prices|length }} SERVICES</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        The bars show how your price compares to the market average. Green bar = market average. Red bar = market high. Your price is shown at the right.
+        Your menu prices compared to the Charlotte market. Prices collected from {{ data.competitor_count }} competing shops by your PricingScout agent.
       </div>
       {% set max_price = data.prices.values()|max if data.prices else 80 %}
       {% for name, price in data.prices.items() %}
@@ -2154,7 +2188,7 @@ body {
         <span class="card-badge badge-teal">{{ data.neighborhoods|length }} ZONES</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        Each row is a Charlotte neighborhood your agents are monitoring. Shows how many competing shops are there and what the average fade price is.
+        Every Charlotte neighborhood where your agents found competing barbershops, ranked by shop count. Your neighborhood ({{ data.shop.neighborhood }}) is highlighted.
       </div>
       <table class="intel-table">
         <thead>
@@ -2162,15 +2196,18 @@ body {
             <th>Neighborhood</th>
             <th>Shops</th>
             <th>Avg Fade</th>
-            <th>How Crowded</th>
+            <th>Density</th>
+            <th>vs. Your Price</th>
           </tr>
         </thead>
         <tbody>
-          {% for n in data.neighborhoods[:10] %}
-          <tr>
-            <td style="font-weight: 500;">{{ n.neighborhood or 'Unknown' }}</td>
+          {% for n in data.neighborhoods[:12] %}
+          <tr{% if n.is_yours %} style="background: rgba(0,121,107,0.06);"{% endif %}>
+            <td style="font-weight: 500;">
+              {{ n.neighborhood or 'Unknown' }}{% if n.is_yours %} <span style="font-size: 9px; color: var(--teal); font-weight: 700;">YOU</span>{% endif %}
+            </td>
             <td>
-              <span style="font-family: var(--font-mono); {% if n.shops <= 1 %}color: var(--teal);{% elif n.shops >= 4 %}color: var(--red-soft);{% endif %}">
+              <span style="font-family: var(--font-mono); font-weight: 600; {% if n.shops <= 1 %}color: var(--teal);{% elif n.shops >= 5 %}color: var(--red);{% else %}color: var(--text-primary);{% endif %}">
                 {{ n.shops }}
               </span>
             </td>
@@ -2178,13 +2215,16 @@ body {
               {% if n.avg_fade %}
               <span style="font-family: var(--font-mono);">${{ "%.0f"|format(n.avg_fade) }}</span>
               {% else %}
-              <span style="color: var(--text-muted);">--</span>
+              <span style="color: var(--text-muted);">No data</span>
               {% endif %}
             </td>
             <td>
-              <div style="height:4px; border-radius:2px; background:rgba(17,17,17,0.06); min-width:40px;">
-                <div style="height:100%; border-radius:2px; width:{{ (n.shops / 6 * 100)|int }}%; background: linear-gradient(90deg, var(--teal), {% if n.shops >= 4 %}var(--red){% else %}var(--teal-soft){% endif %});"></div>
-              </div>
+              <span class="{% if n.density == 'Packed' %}badge-red{% elif n.density == 'Busy' %}badge-yellow{% elif n.density == 'Low' or n.density == 'Empty' %}badge-green{% else %}badge-teal{% endif %}" style="font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+                {{ n.density }}
+              </span>
+            </td>
+            <td style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">
+              {{ n.price_note or '' }}
             </td>
           </tr>
           {% endfor %}
@@ -2197,31 +2237,31 @@ body {
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Shops to Watch</span>
-        <span class="card-badge badge-red">{% if data.top_threats|length %}{{ data.top_threats|length }} Tracked{% else %}None Being Tracked Yet{% endif %}</span>
+        <span class="card-badge badge-red">{% if data.top_threats|length %}{{ data.top_threats|length }} Tracked{% else %}0 Tracked{% endif %}</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        Competitors flagged by the Scorecard agent as high-threat based on ratings, growth, and pricing. Run the Scorecard agent to populate this.
+        Your biggest competitors ranked by threat score. Higher score = more direct competition to your shop. Scores calculated from ratings, growth, pricing, and proximity.
       </div>
       {% if data.top_threats %}
       <table class="intel-table">
         <thead>
           <tr>
             <th>Competitor</th>
-            <th>Area</th>
-            <th>Type</th>
-            <th>Threat Level</th>
+            <th>Location</th>
+            <th>Score</th>
+            <th>Why They're a Threat</th>
           </tr>
         </thead>
         <tbody>
           {% for t in data.top_threats %}
           <tr>
             <td style="font-weight: 500;">{{ t.company_name }}</td>
-            <td style="font-size: 11px; color: var(--text-secondary);">{{ t.neighborhood or '--' }}</td>
-            <td><span style="font-family: var(--font-mono); font-size: 10px;">{{ t.ownership_type or '--' }}</span></td>
+            <td style="font-size: 11px; color: var(--text-secondary);">{{ t.neighborhood or t.zip_code or 'Charlotte' }}</td>
             <td>
-              <div class="threat-bar">
-                <div class="threat-fill" style="width: {{ ((t.threat_score or 0) / 10 * 100)|int }}%;"></div>
-              </div>
+              <span style="font-family: var(--font-mono); font-weight: 600; {% if (t.threat_score or 0) >= 7 %}color: var(--red);{% elif (t.threat_score or 0) >= 4 %}color: #B45309;{% else %}color: var(--teal);{% endif %}">{{ "%.1f"|format(t.threat_score or 0) }}/10</span>
+            </td>
+            <td style="font-size: 11px; line-height: 1.4;">
+              {% if t.components %}{{ t.components }}{% elif (t.threat_score or 0) >= 7 %}High ratings, strong online presence, competitive pricing{% elif (t.threat_score or 0) >= 4 %}Growing reputation in {{ t.neighborhood or 'the area' }}{% else %}On the radar — monitoring for changes{% endif %}
             </td>
           </tr>
           {% endfor %}
