@@ -85,64 +85,98 @@ def _q(query, params=None):
         con.close()
 
 
-def _threat_reason(components_json):
-    """Turn a threat-score components dict into a plain-English sentence.
+def _shop_threat_reason(row):
+    """Build a plain-English reason why this shop is a threat, sourced from
+    actual per-shop research (competitor notes + hotness scorecard components),
+    NOT from the generic threat-formula sub-scores."""
+    import re as _re
 
-    Components and their score ceilings (from the Scorecard agent):
-    pricing 0-3, reviews 0-2.5, social 0-2, momentum 0-1.5, platforms 0-1.
-    Each factor is normalized by its ceiling so they compare fairly.
-    """
-    ceilings = {
-        "pricing": 3.0, "reviews": 2.5, "social": 2.0,
-        "momentum": 1.5, "platforms": 1.0,
-    }
-    phrases = {
-        "pricing": {
-            "lead": "They compete hard on price and undercut most of the market",
-            "extra": "their prices undercut the market",
-        },
-        "reviews": {
-            "lead": "They have a strong reputation and loyal customers",
-            "extra": "they have a solid reputation with customers",
-        },
-        "social": {
-            "lead": "They are highly visible on social media and pull a lot of attention",
-            "extra": "they stay visible on social media",
-        },
-        "momentum": {
-            "lead": "They are growing fast right now",
-            "extra": "they are growing fast right now",
-        },
-        "platforms": {
-            "lead": "They are easy to find and book across multiple booking apps",
-            "extra": "they are easy to book online",
-        },
-    }
+    notes = (row.get("notes") or "").strip()
+    neighborhood = row.get("neighborhood") or ""
+
+    hotness_json = row.get("hotness_components")
     try:
-        comps = json.loads(components_json) if isinstance(components_json, str) else dict(components_json or {})
+        h = json.loads(hotness_json) if isinstance(hotness_json, str) else dict(hotness_json or {})
     except (ValueError, TypeError):
-        comps = {}
+        h = {}
 
-    ranked = []
-    for key, ceiling in ceilings.items():
-        try:
-            val = float(comps.get(key) or 0)
-        except (ValueError, TypeError):
-            val = 0.0
-        if val > 0:
-            ranked.append((val / ceiling, key))
-    ranked.sort(reverse=True)
+    avg_rating = h.get("avg_rating")
+    total_reviews = h.get("total_reviews") or 0
+    avg_price = h.get("avg_service_price")
+    total_followers = h.get("total_followers") or 0
+    active_barbers = h.get("active_barbers") or 0
 
-    if not ranked:
-        return "Not enough signal yet to assess."
+    parts = []
 
-    top = [key for _, key in ranked[:3]]
-    sentence = phrases[top[0]]["lead"]
-    if len(top) == 2:
-        sentence += ", plus " + phrases[top[1]]["extra"]
-    elif len(top) >= 3:
-        sentence += ", plus " + phrases[top[1]]["extra"] + " and " + phrases[top[2]]["extra"]
-    return sentence + "."
+    # Established / founded — extract just the year from notes
+    year_match = _re.search(
+        r'(?:Est\.?\s*|Founded\s+(?:in\s+)?|Since\s+|Opened\s+(?:in\s+)?)'
+        r'(\w+\.?\s*\d{4}|\d{4})',
+        notes, _re.IGNORECASE,
+    )
+    if year_match:
+        parts.append(f"in business since {year_match.group(1).strip()}")
+    elif row.get("founded_year"):
+        parts.append(f"in business since {row['founded_year']}")
+
+    # Barber count — prefer hotness data, fall back to notes
+    if active_barbers and active_barbers > 1:
+        parts.append(f"{active_barbers} barbers on staff")
+    else:
+        m = _re.search(r'(\d+)\s*barber', notes, _re.IGNORECASE)
+        if m and int(m.group(1)) > 1:
+            parts.append(f"{m.group(1)} barbers on staff")
+
+    # Rating + reviews
+    if avg_rating and total_reviews:
+        parts.append(f"{avg_rating:.1f}-star rating across {total_reviews:,} reviews")
+    elif avg_rating:
+        parts.append(f"{avg_rating:.1f}-star rating")
+
+    # Pricing
+    if avg_price and avg_price > 0:
+        parts.append(f"average service price around ${avg_price:.0f}")
+
+    # Social following
+    if total_followers >= 500:
+        parts.append(f"{total_followers:,} social media followers")
+
+    # Standout detail from notes
+    note_lower = notes.lower()
+    standout = None
+    if "franchise" in note_lower or "14 locations" in note_lower or "locations in" in note_lower:
+        standout = "part of a multi-location franchise"
+    elif "oldest" in note_lower:
+        standout = "a historic institution in Charlotte"
+    elif "cash only" in note_lower:
+        standout = "cash-only shop"
+    elif "beer" in note_lower:
+        standout = "offers beer on-site"
+    elif "warm towel" in note_lower or "steam towel" in note_lower:
+        standout = "complimentary hot towel service"
+    elif "walk-in" in note_lower:
+        standout = "accepts walk-ins"
+
+    if not parts and not standout:
+        if notes:
+            clean = notes.split(".")[0].strip()
+            if len(clean) > 10:
+                return f"{clean}. Limited intel so far — agents are still gathering pricing and review data."
+        return "Limited intel collected so far — agents are still gathering data on this shop."
+
+    sentence = ", ".join(parts[:3])
+    if sentence:
+        sentence = sentence[0].upper() + sentence[1:]
+        if standout:
+            sentence += " — " + standout
+    else:
+        sentence = standout[0].upper() + standout[1:]
+    sentence += "."
+
+    if len(parts) <= 1:
+        sentence += " Agents are still gathering more details."
+
+    return sentence
 
 
 def get_dashboard_data():
@@ -272,26 +306,39 @@ def get_dashboard_data():
         "SELECT COALESCE(ROUND(AVG(rating), 1), 0) as avg FROM review_snapshots"
     )[0]["avg"])
 
-    # Top competitors by threat — latest score per competitor, deduped
+    # Top competitors by threat — latest score per competitor, deduped,
+    # joined with competitor notes + hotness scorecard for real per-shop facts
     d["top_threats"] = _q("""
-        WITH latest AS (
-            SELECT cs.competitor_id, cs.score, cs.components, cs.scored_at,
+        WITH latest_threat AS (
+            SELECT cs.competitor_id, cs.score, cs.scored_at,
                    ROW_NUMBER() OVER (
                        PARTITION BY cs.competitor_id
                        ORDER BY cs.scored_at DESC
                    ) AS rn
             FROM competitor_scores cs
             WHERE cs.score_type = 'threat'
+        ),
+        latest_hotness AS (
+            SELECT cs.competitor_id, cs.components,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY cs.competitor_id
+                       ORDER BY cs.scored_at DESC
+                   ) AS rn
+            FROM competitor_scores cs
+            WHERE cs.score_type = 'hotness'
         )
-        SELECT c.company_name, c.neighborhood, c.zip_code,
-               l.score as threat_score, l.components
-        FROM latest l
-        JOIN competitors c ON c.competitor_id = l.competitor_id
-        WHERE l.rn = 1
-        ORDER BY l.score DESC LIMIT 8
+        SELECT c.company_name, c.neighborhood, c.zip_code, c.notes,
+               c.ownership_type, c.founded_year, c.business_model,
+               lt.score as threat_score,
+               lh.components as hotness_components
+        FROM latest_threat lt
+        JOIN competitors c ON c.competitor_id = lt.competitor_id
+        LEFT JOIN latest_hotness lh ON lh.competitor_id = lt.competitor_id AND lh.rn = 1
+        WHERE lt.rn = 1
+        ORDER BY lt.score DESC LIMIT 8
     """)
     for t in d["top_threats"]:
-        t["reason"] = _threat_reason(t.get("components"))
+        t["reason"] = _shop_threat_reason(t)
 
     # Agent runs
     d["agent_runs"] = _q("""
