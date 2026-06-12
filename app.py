@@ -2697,7 +2697,7 @@ body {
         </div>
         <div class="stat-chip">
           <div class="stat-chip-value" style="color: #FBBF24;">{{ (data.skills|selectattr('status', 'equalto', 'design')|list|length) + (data.skills|selectattr('status', 'equalto', 'testing')|list|length) }}</div>
-          <div class="stat-chip-label">In Design / Testing</div>
+          <div class="stat-chip-label">Planned / Testing</div>
         </div>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px; line-height: 1.5;">
@@ -2731,13 +2731,13 @@ body {
           <span class="pipeline-id">#{{ s.skill_id }}</span>
           <span class="skill-card-title">{{ s.display_name }}</span>
           {% if s.last_run %}
-          <span class="skill-tag" style="background: rgba(46,196,182,0.12); color: var(--teal-soft);">RUNS</span>
+          <span class="skill-tag" style="background: rgba(46,196,182,0.12); color: var(--teal-soft);">WORKING</span>
           {% elif s.status == 'active' %}
-          <span class="skill-tag" style="background: rgba(96,165,250,0.1); color: #60A5FA;">DEFINED</span>
+          <span class="skill-tag" style="background: rgba(96,165,250,0.1); color: #60A5FA;">READY</span>
           {% elif s.status == 'testing' %}
           <span class="skill-tag" style="background: rgba(251,191,36,0.1); color: #FBBF24;">TESTING</span>
           {% else %}
-          <span class="skill-tag" style="background: rgba(250,250,250,0.06); color: var(--text-muted);">IN DESIGN</span>
+          <span class="skill-tag" style="background: rgba(250,250,250,0.06); color: var(--text-muted);">PLANNED</span>
           {% endif %}
         </div>
         {% if s.description %}

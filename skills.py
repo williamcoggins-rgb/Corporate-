@@ -124,13 +124,16 @@ def init_skills_schema():
 # ════════════════════════════════════════════════════════════════════════
 
 def _seed_skills():
-    """Seed initial skills aligned with corporate strategy."""
+    """Seed initial skills aligned with corporate strategy.
+
+    Inserts only when the table is empty, but always refreshes the
+    descriptive copy (display_name, description) on existing rows so
+    wording updates reach databases seeded with older text. Run history
+    and metrics are never touched.
+    """
     con = get_connection()
 
     count = con.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
-    if count > 0:
-        con.close()
-        return
 
     skills = [
         # Category 1: Document / Asset Creation
@@ -349,6 +352,16 @@ def _seed_skills():
             "version": "0.1.0",
         },
     ]
+
+    if count > 0:
+        for s in skills:
+            con.execute(
+                """UPDATE skills SET display_name = ?, description = ?
+                   WHERE name = ?""",
+                [s["display_name"], s["description"], s["name"]],
+            )
+        con.close()
+        return
 
     for s in skills:
         cols = ", ".join(s.keys())
