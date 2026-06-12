@@ -112,12 +112,258 @@ CUSTOM_TOOLS = [
             "required": ["tier"]
         },
     },
+    {
+        "type": "custom",
+        "name": "record_prices",
+        "description": (
+            "Write competitor service prices into the warehouse (price_history table). "
+            "Use this after web-searching current barbershop prices in Charlotte NC. "
+            "The competitor is matched by name (created if new). One call per shop. "
+            "Automatically flags undercuts and premium tiers, and logs a pricing_scout "
+            "run to agent_runs. Only record real prices you actually found — never invent numbers."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "competitor_name": {
+                    "type": "string",
+                    "description": "Barbershop name as found in the search results"
+                },
+                "zip_code": {
+                    "type": "string",
+                    "description": "Shop zip code if known (used when creating a new competitor)"
+                },
+                "prices": {
+                    "type": "object",
+                    "description": "Map of service name to price in USD, e.g. {\"Fade\": 45, \"Beard Trim\": 20}",
+                    "additionalProperties": {"type": "number"}
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Where the prices came from (e.g. 'Booksy', 'Google', a website URL)"
+                },
+            },
+            "required": ["competitor_name", "prices"]
+        },
+    },
+    {
+        "type": "custom",
+        "name": "record_reviews",
+        "description": (
+            "Write customer reviews into the warehouse (review_snapshots table). "
+            "Use this after web-searching recent Charlotte barbershop reviews. "
+            "The competitor is matched by name (created if new). Sentiment and intel "
+            "keywords are scored automatically, and a review_harvester run is logged "
+            "to agent_runs. Only record real reviews you actually found."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "competitor_name": {
+                    "type": "string",
+                    "description": "Barbershop name the reviews belong to"
+                },
+                "zip_code": {
+                    "type": "string",
+                    "description": "Shop zip code if known"
+                },
+                "reviews": {
+                    "type": "array",
+                    "description": "Reviews found via web search",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "platform": {"type": "string", "description": "Google, Yelp, Facebook, or Booksy"},
+                            "rating": {"type": "number", "description": "Star rating 1-5"},
+                            "review_text": {"type": "string"},
+                            "reviewer_name": {"type": "string"},
+                            "review_date": {"type": "string", "description": "YYYY-MM-DD if known"},
+                        },
+                        "required": ["platform", "review_text"]
+                    }
+                },
+            },
+            "required": ["competitor_name", "reviews"]
+        },
+    },
+    {
+        "type": "custom",
+        "name": "record_social",
+        "description": (
+            "Write social media follower snapshots into the warehouse (competitor_social "
+            "table). Use this after web-searching Instagram/TikTok/Facebook presence of "
+            "Charlotte barbershops. Logs a social_listener run to agent_runs."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "competitor_name": {
+                    "type": "string",
+                    "description": "Barbershop name the snapshots belong to"
+                },
+                "snapshots": {
+                    "type": "array",
+                    "description": "One entry per platform",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "platform": {"type": "string", "description": "Instagram, TikTok, Facebook, or X/Twitter"},
+                            "followers": {"type": "integer"},
+                            "engagement_rate": {"type": "number", "description": "Optional, as a percentage"},
+                        },
+                        "required": ["platform", "followers"]
+                    }
+                },
+            },
+            "required": ["competitor_name", "snapshots"]
+        },
+    },
+    {
+        "type": "custom",
+        "name": "record_shop_intel",
+        "description": (
+            "Record shop status intel: a newly discovered competitor, or a status change "
+            "(opening, closure, expansion, remodel, rebrand) for a known one. Writes to "
+            "competitors / competitor_moves and raises an alert. Logs a shop_watcher run "
+            "to agent_runs. Use after web-searching Charlotte barbershop news."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": ["new_competitor", "status_change"],
+                    "description": "new_competitor = shop not yet tracked; status_change = update on a tracked shop"
+                },
+                "company_name": {"type": "string"},
+                "change_type": {
+                    "type": "string",
+                    "description": "For status_change: New Location, Closure, Remodel, Hours Change, Ownership Change, Rebrand, or Expansion"
+                },
+                "description": {"type": "string", "description": "What happened, with specifics"},
+                "zip_code": {"type": "string"},
+                "neighborhood": {"type": "string"},
+                "shop_type": {"type": "string", "description": "e.g. Full Shop, Suite, Mobile"},
+                "source_url": {"type": "string"},
+            },
+            "required": ["kind", "company_name"]
+        },
+    },
+    {
+        "type": "custom",
+        "name": "record_platform_presence",
+        "description": (
+            "Write booking-platform presence into the warehouse: shop profiles go to "
+            "platform_profiles, solo barbers in target zips go to platform_solo_barbers. "
+            "Use after web-searching Booksy/Vagaro/StyleSeat/TheCut/Squire for Charlotte "
+            "barbers. Logs a platform_scout run to agent_runs."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "profiles": {
+                    "type": "array",
+                    "description": "Shop profiles found on booking platforms",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "competitor_name": {"type": "string"},
+                            "platform": {"type": "string", "description": "Booksy, Vagaro, StyleSeat, TheCut, or Squire"},
+                            "rating": {"type": "number"},
+                            "review_count": {"type": "integer"},
+                            "profile_url": {"type": "string"},
+                            "accepts_online_booking": {"type": "boolean"},
+                        },
+                        "required": ["competitor_name", "platform"]
+                    }
+                },
+                "solo_barbers": {
+                    "type": "array",
+                    "description": "Independent solo barbers found in target zip codes",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "barber_name": {"type": "string"},
+                            "platform": {"type": "string"},
+                            "zip_code": {"type": "string"},
+                            "neighborhood": {"type": "string"},
+                            "rating": {"type": "number"},
+                            "review_count": {"type": "integer"},
+                            "profile_url": {"type": "string"},
+                            "fade_price": {"type": "number"},
+                            "haircut_price": {"type": "number"},
+                            "beard_price": {"type": "number"},
+                            "combo_price": {"type": "number"},
+                            "instagram_handle": {"type": "string"},
+                            "notes": {"type": "string"},
+                        },
+                        "required": ["barber_name", "platform", "zip_code"]
+                    }
+                },
+            },
+        },
+    },
 ]
 
 
 # ════════════════════════════════════════════════════════════════════════
 #  LOCAL TOOL EXECUTION — runs against DuckDB on our server
 # ════════════════════════════════════════════════════════════════════════
+
+# William's own prices and location — feed scout alert logic
+# (undercut detection in PricingScout, proximity warnings in ShopWatcher)
+YOUR_PRICES = {"Fade": 45.0, "Skin Fade": 55.0, "Haircut + Beard Combo": 65.0}
+YOUR_ZIP = "28210"
+
+
+def _resolve_competitor(name, zip_code=None, neighborhood=None):
+    """Match a competitor by name (ILIKE), creating a record if not found."""
+    from warehouse.db import get_connection
+    con = get_connection()
+    row = con.execute(
+        "SELECT competitor_id FROM competitors WHERE company_name ILIKE ?",
+        [f"%{name}%"],
+    ).fetchone()
+    con.close()
+    if row:
+        return row[0]
+    from warehouse.competitors import add_competitor
+    return add_competitor(
+        name,
+        industry="Barbershop",
+        zip_code=zip_code,
+        neighborhood=neighborhood,
+        business_model="Service",
+        notes="Discovered by managed agent web search",
+    )
+
+
+def _record_with_scout(scout_cls, work):
+    """Run `work(scout)` inside a full run lifecycle so agent_runs gets a row.
+
+    The scout's records_processed counter tracks every row written, and
+    _finish_run persists it to agent_runs together with a summary note —
+    this is the audit trail proving the scout actually collected data.
+    """
+    scout = scout_cls()
+    scout._start_run()
+    try:
+        summary = work(scout)
+        scout._finish_run("completed", summary)
+        return {
+            "status": "completed",
+            "run_id": scout.run_id,
+            "records_written": scout.records_processed,
+            "summary": summary,
+        }
+    except Exception as e:
+        scout._finish_run("failed", str(e))
+        return {
+            "error": str(e),
+            "run_id": scout.run_id,
+            "records_written": scout.records_processed,
+        }
+
 
 def _execute_tool(tool_name, tool_input):
     """Execute a custom tool locally and return a result dict."""
@@ -192,6 +438,153 @@ def _execute_tool(tool_name, tool_input):
         except Exception as e:
             return {"error": f"Pipeline '{tier}' failed: {str(e)}"}
 
+    elif tool_name == "record_prices":
+        from agents.pricing_scout import PricingScout
+        name = (tool_input.get("competitor_name") or "").strip()
+        prices = tool_input.get("prices") or {}
+        if not name or not prices:
+            return {"error": "competitor_name and a non-empty prices object are required."}
+
+        def work(scout):
+            cid = _resolve_competitor(name, tool_input.get("zip_code"))
+            clean = {}
+            for svc, price in prices.items():
+                try:
+                    clean[svc] = float(price)
+                except (TypeError, ValueError):
+                    continue
+            scout.bulk_record_prices(
+                cid, clean, source=tool_input.get("source") or "managed agent web search"
+            )
+            return f"Recorded {len(clean)} prices for {name}"
+
+        return _record_with_scout(lambda: PricingScout(your_prices=YOUR_PRICES), work)
+
+    elif tool_name == "record_reviews":
+        from agents.review_harvester import ReviewHarvester
+        name = (tool_input.get("competitor_name") or "").strip()
+        reviews = tool_input.get("reviews") or []
+        if not name or not reviews:
+            return {"error": "competitor_name and a non-empty reviews list are required."}
+
+        def work(scout):
+            cid = _resolve_competitor(name, tool_input.get("zip_code"))
+            for r in reviews:
+                r.setdefault("platform", "Google")
+                if r.get("rating") is not None:
+                    try:
+                        r["rating"] = float(r["rating"])
+                    except (TypeError, ValueError):
+                        r["rating"] = None
+            scout.bulk_ingest(cid, reviews)
+            return f"Ingested {len(reviews)} reviews for {name}"
+
+        return _record_with_scout(ReviewHarvester, work)
+
+    elif tool_name == "record_social":
+        from agents.social_listener import SocialListener
+        name = (tool_input.get("competitor_name") or "").strip()
+        snapshots = tool_input.get("snapshots") or []
+        if not name or not snapshots:
+            return {"error": "competitor_name and a non-empty snapshots list are required."}
+
+        def work(scout):
+            cid = _resolve_competitor(name)
+            for snap in snapshots:
+                try:
+                    followers = int(snap.get("followers") or 0)
+                except (TypeError, ValueError):
+                    followers = 0
+                scout.record_social_snapshot(
+                    cid,
+                    snap.get("platform") or "Instagram",
+                    followers,
+                    snap.get("engagement_rate"),
+                )
+            return f"Recorded {len(snapshots)} social snapshots for {name}"
+
+        return _record_with_scout(SocialListener, work)
+
+    elif tool_name == "record_shop_intel":
+        from agents.shop_watcher import ShopWatcher
+        kind = tool_input.get("kind")
+        name = (tool_input.get("company_name") or "").strip()
+        if not name:
+            return {"error": "company_name is required."}
+
+        def work(scout):
+            if kind == "new_competitor":
+                con = get_connection()
+                existing = con.execute(
+                    "SELECT competitor_id FROM competitors WHERE company_name ILIKE ?",
+                    [f"%{name}%"],
+                ).fetchone()
+                con.close()
+                if existing:
+                    return f"{name} is already tracked (competitor_id={existing[0]}); nothing recorded"
+                cid = scout.record_new_competitor(
+                    name,
+                    zip_code=tool_input.get("zip_code"),
+                    neighborhood=tool_input.get("neighborhood"),
+                    shop_type=tool_input.get("shop_type"),
+                    source_url=tool_input.get("source_url"),
+                )
+                return f"New competitor recorded: {name} (competitor_id={cid})"
+            else:
+                cid = _resolve_competitor(
+                    name, tool_input.get("zip_code"), tool_input.get("neighborhood")
+                )
+                scout.record_status_change(
+                    cid,
+                    tool_input.get("change_type") or "Expansion",
+                    tool_input.get("description") or "",
+                    source_url=tool_input.get("source_url"),
+                )
+                return f"Status change recorded for {name}: {tool_input.get('change_type')}"
+
+        return _record_with_scout(lambda: ShopWatcher(your_zip=YOUR_ZIP), work)
+
+    elif tool_name == "record_platform_presence":
+        from agents.platform_scout import PlatformScout
+        profiles = tool_input.get("profiles") or []
+        solo_barbers = tool_input.get("solo_barbers") or []
+        if not profiles and not solo_barbers:
+            return {"error": "Provide at least one of profiles or solo_barbers."}
+
+        def work(scout):
+            for p in profiles:
+                cid = _resolve_competitor(p.get("competitor_name") or "Unknown")
+                scout.record_platform_profile(
+                    competitor_id=cid,
+                    platform=p.get("platform") or "Booksy",
+                    rating=p.get("rating"),
+                    review_count=p.get("review_count") or 0,
+                    profile_url=p.get("profile_url"),
+                    accepts_online_booking=p.get("accepts_online_booking", True),
+                )
+            for b in solo_barbers:
+                scout.record_solo_barber(
+                    barber_name=b.get("barber_name") or "Unknown",
+                    platform=b.get("platform") or "Booksy",
+                    zip_code=b.get("zip_code") or "",
+                    neighborhood=b.get("neighborhood"),
+                    rating=b.get("rating"),
+                    review_count=b.get("review_count") or 0,
+                    profile_url=b.get("profile_url"),
+                    fade_price=b.get("fade_price"),
+                    haircut_price=b.get("haircut_price"),
+                    beard_price=b.get("beard_price"),
+                    combo_price=b.get("combo_price"),
+                    instagram_handle=b.get("instagram_handle"),
+                    notes=b.get("notes"),
+                )
+            return (
+                f"Recorded {len(profiles)} platform profiles and "
+                f"{len(solo_barbers)} solo barbers"
+            )
+
+        return _record_with_scout(PlatformScout, work)
+
     return {"error": f"Unknown tool: {tool_name}"}
 
 
@@ -244,7 +637,19 @@ SQL TIPS:
 - Common service names: Fade, Skin Fade, Beard Trim, Haircut, Combo, Line Up, Kids Cut, Hot Towel Shave
 - score_type values: 'threat', 'hotness', 'neighborhood_rank'
 - move_type values: 'New Location', 'Closure', 'Expansion', 'Rebrand', 'Talent Movement', 'data_sync'
-- Always call list_tables first if you are unsure what data exists"""
+- Always call list_tables first if you are unsure what data exists
+
+DATA COLLECTION (Tier 1 scout cycles):
+You are the data collector. Use your web search tool to find current, real
+Charlotte barbershop intel, then write it to the warehouse with these tools:
+- record_prices — service prices found on Booksy/Google/shop sites
+- record_reviews — customer reviews with rating, text, and platform
+- record_social — Instagram/TikTok/Facebook follower snapshots
+- record_shop_intel — new shops, closures, expansions, relocations
+- record_platform_presence — booking-platform profiles and solo barbers
+Each call logs an agent run with the row count, so the audit trail in
+agent_runs proves what was collected. Record ONLY data you actually found
+in search results. If a search comes up empty, say so — never fabricate."""
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -543,12 +948,26 @@ def _load_agent_id():
 
 TIER_TASKS = {
     "tier1": (
-        "Run a Tier 1 scout cycle. First, use run_agent_pipeline with tier1 to "
-        "execute the scout agents (pricing, reviews, social, shops, platforms) and "
-        "collect fresh data into the warehouse. Then use list_tables to check row "
-        "counts, and query_warehouse to assess coverage — how many competitors "
-        "are tracked, latest pricing data age, review counts, and social follower "
-        "data. Identify any gaps or stale data. Report what was collected."
+        "Run a Tier 1 scout cycle: collect FRESH competitive data with web search "
+        "and write it to the warehouse with the record tools.\n"
+        "1. PRICING: web-search current service prices at Charlotte NC barbershops "
+        "(Booksy listings, Google Business, shop websites — fades, haircuts, beard "
+        "trims, combos). Record every real price you find via record_prices, one "
+        "call per shop. Target at least 10-20 price observations total.\n"
+        "2. REVIEWS: web-search recent customer reviews of Charlotte barbershops "
+        "(Google, Yelp, Booksy). Record them via record_reviews with rating, text, "
+        "and platform.\n"
+        "3. SOCIAL: web-search Instagram/TikTok presence of Charlotte barbershops "
+        "and record follower counts via record_social.\n"
+        "4. SHOPS: web-search for newly opened, closed, relocating, or expanding "
+        "Charlotte barbershops and record findings via record_shop_intel.\n"
+        "5. PLATFORMS: web-search Booksy/StyleSeat/Vagaro for Charlotte barber "
+        "profiles and solo barbers in the priority zips; record via "
+        "record_platform_presence.\n"
+        "Prioritize the priority zip codes. Only record data you actually found in "
+        "search results — never invent numbers. Finish with read_agent_logs and "
+        "query_warehouse to confirm rows were written, then report what was "
+        "collected and any gaps."
     ),
     "tier2": (
         "Run a Tier 2 processing cycle. Use run_agent_pipeline with tier2 to "
