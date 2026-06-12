@@ -137,11 +137,11 @@ def _seed_skills():
         {
             "skill_id": 1,
             "name": "competitive-brief",
-            "display_name": "Competitive Brief Generator",
+            "display_name": "Competitor Report",
             "category": "document",
             "description": (
-                "Generates a formatted competitive intelligence brief from warehouse data. "
-                "Trigger: 'competitive brief', 'competitor report', 'market analysis doc'."
+                "Produces a report showing who you're up against — their threat level, "
+                "pricing, reviews, and recent alerts."
             ),
             "trigger_phrases": "competitive brief, competitor report, market analysis doc, intel brief",
             "status": "active",
@@ -158,11 +158,11 @@ def _seed_skills():
         {
             "skill_id": 2,
             "name": "pricing-analysis",
-            "display_name": "Pricing Analysis Report",
+            "display_name": "Pricing Comparison",
             "category": "document",
             "description": (
-                "Generates pricing comparison reports across competitors and services. "
-                "Trigger: 'pricing analysis', 'price comparison', 'how are we priced'."
+                "Compares your prices to the local market, service by service, "
+                "so you can see where you're priced high or low."
             ),
             "trigger_phrases": "pricing analysis, price comparison, how are we priced, pricing report",
             "status": "active",
@@ -179,11 +179,11 @@ def _seed_skills():
         {
             "skill_id": 3,
             "name": "council-brief",
-            "display_name": "Council Briefing Package",
+            "display_name": "Advisory Board Report",
             "category": "document",
             "description": (
-                "Prepares a formal briefing package for the advisory council. "
-                "Trigger: 'council brief', 'prepare for council', 'advisory report'."
+                "Prepares a formal progress report for your advisory board "
+                "showing how close you are to each expansion goal."
             ),
             "trigger_phrases": "council brief, prepare for council, advisory report, board meeting",
             "status": "testing",
@@ -202,12 +202,11 @@ def _seed_skills():
         {
             "skill_id": 4,
             "name": "competitor-onboarding",
-            "display_name": "Competitor Onboarding Pipeline",
+            "display_name": "New Competitor Setup",
             "category": "workflow",
             "description": (
-                "Automates the full competitor onboarding process: data collection, "
-                "enrichment, scoring, and alert setup. Trigger: 'new competitor', "
-                "'onboard competitor', 'add competitor'."
+                "When you spot a new competitor, this sets them up automatically — "
+                "collects their prices, reviews, social profiles, and calculates a threat score."
             ),
             "trigger_phrases": "new competitor, onboard competitor, add competitor, track competitor",
             "status": "active",
@@ -224,12 +223,11 @@ def _seed_skills():
         {
             "skill_id": 5,
             "name": "weekly-intel-cycle",
-            "display_name": "Weekly Intelligence Cycle",
+            "display_name": "Weekly Market Sweep",
             "category": "workflow",
             "description": (
-                "Runs the full CI cycle: collect, analyze, disseminate. "
-                "Orchestrates all tier 1-4 agents in sequence. "
-                "Trigger: 'run weekly cycle', 'intelligence sweep', 'weekly digest'."
+                "Runs a full weekly check on all competitors — updated prices, "
+                "new reviews, social activity, and alerts — in one automated sweep."
             ),
             "trigger_phrases": "run weekly cycle, intelligence sweep, weekly digest, CI cycle",
             "status": "active",
@@ -249,9 +247,8 @@ def _seed_skills():
             "display_name": "R&D Project Kickoff",
             "category": "workflow",
             "description": (
-                "Structured kickoff for new R&D projects. Ensures hypothesis, "
-                "success metric, and concept paper exist before work begins. "
-                "Trigger: 'new R&D project', 'start research', 'lab project'."
+                "Sets up a new research project with a clear hypothesis, success metrics, "
+                "and a concept paper so nothing starts without a plan."
             ),
             "trigger_phrases": "new R&D project, start research, lab project, R&D kickoff",
             "status": "testing",
@@ -266,16 +263,15 @@ def _seed_skills():
             "version": "0.8.0",
         },
 
-        # Category 3: MCP Enhancement
+        # Category 3: Smart Assistant Skills
         {
             "skill_id": 7,
             "name": "warehouse-query-guide",
-            "display_name": "Warehouse Query Optimizer",
+            "display_name": "Data Lookup Helper",
             "category": "mcp",
             "description": (
-                "Guides Claude to write optimal DuckDB queries against the warehouse. "
-                "Knows schema, relationships, and common analysis patterns. "
-                "Trigger: 'query warehouse', 'analyze data', 'pull from warehouse'."
+                "Helps the HQ Assistant pull the right numbers from your database "
+                "faster and without errors when you ask questions."
             ),
             "trigger_phrases": "query warehouse, analyze data, pull from warehouse, DuckDB query",
             "status": "active",
@@ -292,12 +288,11 @@ def _seed_skills():
         {
             "skill_id": 8,
             "name": "agent-orchestrator",
-            "display_name": "Agent Fleet Orchestrator",
+            "display_name": "Agent Coordinator",
             "category": "mcp",
             "description": (
-                "Coordinates multi-agent runs with proper sequencing and error handling. "
-                "Knows agent dependencies, data flow, and tier structure. "
-                "Trigger: 'run agents', 'agent sweep', 'fleet status'."
+                "Runs your automated agents in the correct order with error handling "
+                "so you don't have to manage them manually."
             ),
             "trigger_phrases": "run agents, agent sweep, fleet status, orchestrate agents",
             "status": "active",
@@ -314,12 +309,11 @@ def _seed_skills():
         {
             "skill_id": 9,
             "name": "expansion-readiness-check",
-            "display_name": "Expansion Readiness Assessment",
+            "display_name": "Expansion Readiness Check",
             "category": "mcp",
             "description": (
-                "Runs comprehensive expansion readiness checks against council criteria. "
-                "Pulls live data, evaluates all five advisor conditions. "
-                "Trigger: 'expansion check', 'am I ready', 'council readiness'."
+                "Checks your live business data against all 5 expansion goals "
+                "to show exactly what's met and what still needs work."
             ),
             "trigger_phrases": "expansion check, am I ready, council readiness, exit strategy check",
             "status": "design",
@@ -336,12 +330,11 @@ def _seed_skills():
         {
             "skill_id": 10,
             "name": "site-selection-analysis",
-            "display_name": "Site Selection Deep Dive",
+            "display_name": "New Location Analysis",
             "category": "mcp",
             "description": (
-                "Performs multi-factor site selection analysis using warehouse division data. "
-                "Evaluates demographics, competition density, pricing, and demand. "
-                "Trigger: 'site analysis', 'where to open', 'location evaluation'."
+                "Analyzes potential new shop locations by comparing local demographics, "
+                "nearby competition, pricing levels, and demand."
             ),
             "trigger_phrases": "site analysis, where to open, location evaluation, neighborhood analysis",
             "status": "design",
@@ -375,7 +368,7 @@ def _skill_competitive_brief():
     parts = []
 
     comp = _q("SELECT COUNT(*) AS n FROM competitors WHERE status = 'Active'")[0]["n"]
-    parts.append(f"{comp} active competitors tracked")
+    parts.append(f"Tracking {comp} active competitors")
 
     threats = _q("""
         SELECT c.company_name, cs.score
@@ -388,10 +381,13 @@ def _skill_competitive_brief():
         ORDER BY cs.score DESC LIMIT 3
     """)
     if threats:
-        top = "; ".join(f"{t['company_name']} ({float(t['score']):.1f}/10)" for t in threats)
-        parts.append(f"Top threats: {top}")
+        top = "; ".join(
+            f"{t['company_name']} (threat score {float(t['score']):.1f}/10)"
+            for t in threats
+        )
+        parts.append(f"Biggest threats: {top}")
     else:
-        parts.append("No threat scores yet (Scorecard has not run)")
+        parts.append("No threat scores yet — the scoring agent hasn't run")
 
     fade = _q("""
         WITH latest AS (
@@ -406,22 +402,31 @@ def _skill_competitive_brief():
     """)
     if fade and fade[0]["avg_p"]:
         my_fade = YOUR_SHOP.get("prices", {}).get("Fade", 45)
+        avg = float(fade[0]["avg_p"])
+        diff = abs(my_fade - avg)
+        direction = "above" if my_fade > avg else "below"
         parts.append(
-            f"Market avg fade ${float(fade[0]['avg_p']):.0f} across "
-            f"{fade[0]['shops']} shops (yours ${my_fade})"
+            f"Your Fade is ${my_fade} — that's ${diff:.0f} {direction} "
+            f"the ${avg:.0f} market average across {fade[0]['shops']} shops"
         )
 
     reviews = _q("""
         SELECT COUNT(*) AS n, ROUND(AVG(rating), 1) AS avg_r FROM review_snapshots
     """)[0]
     if reviews["n"]:
-        parts.append(f"{reviews['n']} reviews on file, market avg {reviews['avg_r']}/5")
+        parts.append(
+            f"{reviews['n']} reviews on file with a market average rating of "
+            f"{reviews['avg_r']} out of 5"
+        )
 
     alerts = _q("""
         SELECT COUNT(*) AS n FROM alerts_log
         WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
     """)[0]["n"]
-    parts.append(f"{alerts} alerts in the last 7 days")
+    if alerts:
+        parts.append(f"{alerts} alerts fired in the last 7 days")
+    else:
+        parts.append("No alerts in the last 7 days")
 
     return ". ".join(parts) + "."
 
@@ -444,11 +449,11 @@ def _skill_pricing_analysis():
         """, [f"%{service}%"])
         if row and row[0]["avg_p"]:
             avg = float(row[0]["avg_p"])
-            diff = mine - avg
-            pos = "above" if diff > 0 else "below"
+            diff = abs(mine - avg)
+            direction = "above" if mine > avg else "below"
             parts.append(
-                f"{service}: yours ${mine} vs market ${avg:.0f} "
-                f"(${abs(diff):.0f} {pos}, {row[0]['n']} data points)"
+                f"Your {service} is ${mine} — that's ${diff:.0f} {direction} "
+                f"the ${avg:.0f} market average ({row[0]['n']} shops compared)"
             )
 
     zips = _q("""
@@ -559,12 +564,12 @@ def show_skills_status():
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
 
     print(f"\n  FLEET: {total} skills | {active} ACTIVE | {testing} TESTING | {design} IN DESIGN")
-    print(f"  CATEGORIES: {cat_counts.get('document', 0)} Document | {cat_counts.get('workflow', 0)} Workflow | {cat_counts.get('mcp', 0)} MCP Enhancement")
+    print(f"  CATEGORIES: {cat_counts.get('document', 0)} Reports | {cat_counts.get('workflow', 0)} Automated Processes | {cat_counts.get('mcp', 0)} Smart Assistant")
 
     # By category
-    for cat, cat_label in [("document", "DOCUMENT / ASSET CREATION"),
-                            ("workflow", "WORKFLOW AUTOMATION"),
-                            ("mcp", "MCP ENHANCEMENT")]:
+    for cat, cat_label in [("document", "REPORTS & ANALYSIS"),
+                            ("workflow", "AUTOMATED PROCESSES"),
+                            ("mcp", "SMART ASSISTANT SKILLS")]:
         cat_skills = [s for s in skills if s["category"] == cat]
         if not cat_skills:
             continue
@@ -600,9 +605,9 @@ def show_skills_status():
 def show_category(category):
     """Show skills for a specific category."""
     cat_labels = {
-        "document": "DOCUMENT / ASSET CREATION",
-        "workflow": "WORKFLOW AUTOMATION",
-        "mcp": "MCP ENHANCEMENT",
+        "document": "REPORTS & ANALYSIS",
+        "workflow": "AUTOMATED PROCESSES",
+        "mcp": "SMART ASSISTANT SKILLS",
     }
 
     if category not in cat_labels:

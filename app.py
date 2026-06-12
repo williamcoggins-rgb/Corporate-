@@ -2683,7 +2683,7 @@ body {
         <span class="card-badge badge-teal">{{ data.skills|length }} SKILLS &middot; 3 CATEGORIES</span>
       </div>
       <div class="stat-strip">
-        {% set cat_configs = {'document': 'Document', 'workflow': 'Workflow', 'mcp': 'MCP Enhancement'} %}
+        {% set cat_configs = {'document': 'Reports', 'workflow': 'Automated', 'mcp': 'Smart Assistant'} %}
         {% set cat_colors = {'document': '#60A5FA', 'workflow': '#F472B6', 'mcp': '#A78BFA'} %}
         {% for cat_key, cat_label in cat_configs.items() %}
         <div class="stat-chip">
@@ -2700,13 +2700,18 @@ body {
           <div class="stat-chip-label">In Design / Testing</div>
         </div>
       </div>
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px; line-height: 1.5;">
+        These are the things HQ can do for you. <strong style="color: var(--text-secondary);">Reports</strong> generate written analysis.
+        <strong style="color: var(--text-secondary);">Automated</strong> processes run multi-step tasks on their own.
+        <strong style="color: var(--text-secondary);">Smart Assistant</strong> skills make the HQ chat smarter when you ask it questions.
+      </div>
     </div>
 
     <!-- SKILLS BY CATEGORY -->
     {% set skill_cat_configs = [
-      ('document', 'Document / Asset Creation', 'Generate reports, briefs, analysis docs from warehouse data. Templates + style guides.', '#60A5FA', 'rgba(96,165,250,0.08)'),
-      ('workflow', 'Workflow Automation', 'Multi-step processes with validation. Coordinates agents, enforces quality gates.', '#F472B6', 'rgba(244,114,182,0.08)'),
-      ('mcp', 'MCP Enhancement', 'Guides Claude tool usage. Embeds domain expertise, optimizes API coordination.', '#A78BFA', 'rgba(167,139,250,0.08)')
+      ('document', 'Reports & Analysis', 'Written reports that summarize your competitive data — pricing comparisons, competitor threat levels, and market trends.', '#60A5FA', 'rgba(96,165,250,0.08)'),
+      ('workflow', 'Automated Processes', 'Multi-step tasks that run on their own — onboarding new competitors, weekly market sweeps, and research project setup.', '#F472B6', 'rgba(244,114,182,0.08)'),
+      ('mcp', 'Smart Assistant Skills', 'These make the HQ Assistant smarter when you ask it questions — better data lookups, coordinated agent runs, and expansion readiness checks.', '#A78BFA', 'rgba(167,139,250,0.08)')
     ] %}
 
     {% for cat_key, cat_label, cat_desc, cat_color, cat_bg in skill_cat_configs %}
@@ -2736,21 +2741,21 @@ body {
           {% endif %}
         </div>
         {% if s.description %}
-        <div class="skill-card-desc">{{ s.description|e|truncate(160) }}</div>
+        <div class="skill-card-desc">{{ s.description|e }}</div>
         {% endif %}
 
         <!-- What you get -->
         {% set skill_outputs = {
-          "competitive-brief": "A formatted report showing exactly how your prices, services, and ratings compare to every competitor being tracked.",
-          "pricing-analysis": "A side-by-side breakdown of your prices vs the market so you can see where you are over or underpriced.",
-          "council-brief": "A formal document ready to present to your advisory board showing your progress toward the 5 expansion goals.",
-          "competitor-onboarding": "A fully tracked competitor entry with pricing, reviews, social profiles, and a threat score — all set up automatically.",
-          "weekly-intel-cycle": "A complete weekly intelligence sweep — updated prices, new reviews, social changes, and alerts across your entire market.",
-          "rnd-project-setup": "A structured project plan with hypothesis, success metrics, and a concept paper ready to begin research.",
-          "warehouse-query-guide": "Optimized data queries that pull exactly the right information from your warehouse without errors.",
-          "agent-orchestrator": "Coordinated agent runs in the right order with proper error handling — no manual work needed.",
-          "expansion-readiness-check": "A live readiness check against all 5 expansion goals showing exactly what is met and what is still needed.",
-          "site-selection-analysis": "A multi-factor analysis of potential shop locations comparing demographics, competition, pricing, and demand."
+          "competitive-brief": "A plain-English report showing who your biggest threats are, how your prices compare, and what changed this week.",
+          "pricing-analysis": "A service-by-service breakdown showing where you're priced above or below the market average, and by how much.",
+          "council-brief": "A progress report for your advisory board showing which expansion goals are met and which still need work.",
+          "competitor-onboarding": "A fully set-up competitor profile with their prices, reviews, social accounts, and a threat score — done automatically.",
+          "weekly-intel-cycle": "A full weekly update — fresh prices, new reviews, social changes, and any alerts — across your whole market.",
+          "rnd-project-setup": "A structured project plan with a hypothesis, success metrics, and a concept paper ready before any work begins.",
+          "warehouse-query-guide": "Faster, more accurate answers when you ask the HQ Assistant questions about your data.",
+          "agent-orchestrator": "All your automated agents run in the right order without you having to manage anything.",
+          "expansion-readiness-check": "A clear yes/no on each of the 5 expansion goals, showing exactly what's met and what's still needed.",
+          "site-selection-analysis": "A comparison of potential new shop locations looking at local population, nearby competition, pricing, and demand."
         } %}
         {% if s.name in skill_outputs %}
         <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">
@@ -2765,33 +2770,33 @@ body {
             {% if s.last_run %}
             <span style="color: var(--white);">{{ s.last_run.strftime('%b %d, %I:%M %p') if s.last_run.strftime else s.last_run }}</span>
             {% else %}
-            <span style="color: var(--text-muted);">never</span>
+            <span style="color: var(--text-muted);">never run</span>
             {% endif %}
           </div>
           <div>
-            <span style="color: var(--text-muted);">Output:</span>
+            <span style="color: var(--text-muted);">Latest findings:</span>
             {% if s.last_output %}
-            <span style="color: var(--white);">{{ s.last_output|e|truncate(140) }}</span>
+            <span style="color: var(--white);">{{ s.last_output|e|truncate(300, False, '') }}</span>
             {% else %}
-            <span style="color: var(--text-muted);">not yet generated</span>
+            <span style="color: var(--text-muted);">Hasn't been run yet — ask the HQ Assistant to generate it</span>
             {% endif %}
           </div>
-          {% set skill_feeds = {
-            "competitive-brief": "Scorecard Agent · Data Warehouse",
-            "pricing-analysis": "Pricing Intelligence · Pricing Scout",
-            "council-brief": "Advisory Council · Data Warehouse",
-            "competitor-onboarding": "Pricing Scout · Review Harvester · Scorecard Agent",
-            "weekly-intel-cycle": "All Registered Agents · Alert System",
-            "rnd-project-setup": "R&D System · Data Warehouse",
-            "warehouse-query-guide": "Data Warehouse (all 21 tables)",
-            "agent-orchestrator": "All Registered Agents",
-            "expansion-readiness-check": "Advisory Council · Business Strategy",
-            "site-selection-analysis": "Market Research · Demand Forecasting"
+          {% set skill_sources = {
+            "competitive-brief": "Your live competitor scores and pricing data",
+            "pricing-analysis": "Your tracked competitor prices, updated each collection cycle",
+            "council-brief": "Your advisory board goals and live business metrics",
+            "competitor-onboarding": "Price, review, and social data collectors plus the scoring system",
+            "weekly-intel-cycle": "All automated data collectors and the alert system",
+            "rnd-project-setup": "Your R&D project tracker and business data",
+            "warehouse-query-guide": "Your full business database (all tables)",
+            "agent-orchestrator": "All 13 automated agents",
+            "expansion-readiness-check": "Your advisory board criteria and live business data",
+            "site-selection-analysis": "Market research data and demand estimates"
           } %}
-          {% if s.name in skill_feeds %}
+          {% if s.name in skill_sources %}
           <div>
-            <span style="color: var(--text-muted);">Fed by:</span>
-            <span style="color: var(--white);">{{ skill_feeds[s.name] }}</span>
+            <span style="color: var(--text-muted);">Data source:</span>
+            <span style="color: var(--white);">{{ skill_sources[s.name] }}</span>
           </div>
           {% endif %}
         </div>
