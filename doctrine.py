@@ -447,9 +447,11 @@ def doctrine_audit():
         print(f"    {k:30s}  {v}")
 
     if os_info.get("type") == "proprietary":
-        print(f"\n    PROPRIETARY BOOKING OS:")
-        for feat in os_info.get("features", []):
-            print(f"      ◆ {feat}")
+        print(f"\n    PROPRIETARY BOOKING OS (planned):")
+        for feat in os_info.get("features_live", []):
+            print(f"      ◆ {feat} [live]")
+        for feat in os_info.get("features_planned", []):
+            print(f"      ◇ {feat} [planned]")
         migrating = os_info.get("migrating_from")
         if migrating:
             print(f"      Migrating from: {migrating}")

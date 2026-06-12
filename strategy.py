@@ -55,11 +55,15 @@ YOUR_SHOP = {
     "booking_platform": "Proprietary OS",
     "booking_os": {
         "type": "proprietary",
-        "features": [
-            "Live transaction intelligence",
-            "Adaptive scheduling from day-to-day patterns",
+        # Split honestly: what exists today vs what is planned but not built.
+        # The intelligence warehouse is real; no booking features exist yet.
+        "features_live": [
             "Backed by its own data warehouse",
             "Competitive intelligence integration",
+        ],
+        "features_planned": [
+            "Live transaction intelligence",
+            "Adaptive scheduling from day-to-day patterns",
             "Deposit collection on future bookings",
         ],
         "migrating_from": "Booksy",

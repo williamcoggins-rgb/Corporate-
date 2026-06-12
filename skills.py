@@ -112,6 +112,10 @@ def init_skills_schema():
         CREATE SEQUENCE IF NOT EXISTS seq_skill_deployment START 1;
     """)
 
+    # Execution tracking — added after initial schema, so ALTER for existing DBs
+    con.execute("ALTER TABLE skills ADD COLUMN IF NOT EXISTS last_run TIMESTAMP;")
+    con.execute("ALTER TABLE skills ADD COLUMN IF NOT EXISTS last_output TEXT;")
+
     con.close()
 
 
@@ -360,6 +364,137 @@ def _seed_skills():
 
     con.close()
     print("  Skills seed data loaded.")
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  SKILL EXECUTION — data-backed skills that actually run against the warehouse
+# ════════════════════════════════════════════════════════════════════════
+
+def _skill_competitive_brief():
+    """Build a competitive intelligence brief from live warehouse data."""
+    parts = []
+
+    comp = _q("SELECT COUNT(*) AS n FROM competitors WHERE status = 'Active'")[0]["n"]
+    parts.append(f"{comp} active competitors tracked")
+
+    threats = _q("""
+        SELECT c.company_name, cs.score
+        FROM competitor_scores cs
+        JOIN competitors c ON c.competitor_id = cs.competitor_id
+        WHERE cs.score_type = 'threat'
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY cs.competitor_id ORDER BY cs.scored_at DESC
+        ) = 1
+        ORDER BY cs.score DESC LIMIT 3
+    """)
+    if threats:
+        top = "; ".join(f"{t['company_name']} ({float(t['score']):.1f}/10)" for t in threats)
+        parts.append(f"Top threats: {top}")
+    else:
+        parts.append("No threat scores yet (Scorecard has not run)")
+
+    fade = _q("""
+        WITH latest AS (
+            SELECT competitor_id, price FROM price_history
+            WHERE service_name ILIKE '%fade%'
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY competitor_id, service_name ORDER BY recorded_at DESC
+            ) = 1
+        )
+        SELECT ROUND(AVG(price), 2) AS avg_p, COUNT(DISTINCT competitor_id) AS shops
+        FROM latest
+    """)
+    if fade and fade[0]["avg_p"]:
+        my_fade = YOUR_SHOP.get("prices", {}).get("Fade", 45)
+        parts.append(
+            f"Market avg fade ${float(fade[0]['avg_p']):.0f} across "
+            f"{fade[0]['shops']} shops (yours ${my_fade})"
+        )
+
+    reviews = _q("""
+        SELECT COUNT(*) AS n, ROUND(AVG(rating), 1) AS avg_r FROM review_snapshots
+    """)[0]
+    if reviews["n"]:
+        parts.append(f"{reviews['n']} reviews on file, market avg {reviews['avg_r']}/5")
+
+    alerts = _q("""
+        SELECT COUNT(*) AS n FROM alerts_log
+        WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '7' DAY
+    """)[0]["n"]
+    parts.append(f"{alerts} alerts in the last 7 days")
+
+    return ". ".join(parts) + "."
+
+
+def _skill_pricing_analysis():
+    """Build a pricing comparison summary from live warehouse data."""
+    parts = []
+    my_prices = YOUR_SHOP.get("prices", {})
+
+    for service, mine in my_prices.items():
+        row = _q("""
+            WITH latest AS (
+                SELECT price FROM price_history
+                WHERE service_name ILIKE ?
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY competitor_id, service_name ORDER BY recorded_at DESC
+                ) = 1
+            )
+            SELECT ROUND(AVG(price), 2) AS avg_p, COUNT(*) AS n FROM latest
+        """, [f"%{service}%"])
+        if row and row[0]["avg_p"]:
+            avg = float(row[0]["avg_p"])
+            diff = mine - avg
+            pos = "above" if diff > 0 else "below"
+            parts.append(
+                f"{service}: yours ${mine} vs market ${avg:.0f} "
+                f"(${abs(diff):.0f} {pos}, {row[0]['n']} data points)"
+            )
+
+    zips = _q("""
+        WITH latest AS (
+            SELECT ph.competitor_id, ph.price FROM price_history ph
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY ph.competitor_id, ph.service_name ORDER BY ph.recorded_at DESC
+            ) = 1
+        )
+        SELECT c.zip_code, ROUND(AVG(l.price), 2) AS avg_p
+        FROM latest l JOIN competitors c ON c.competitor_id = l.competitor_id
+        WHERE c.zip_code IS NOT NULL
+        GROUP BY c.zip_code ORDER BY avg_p DESC LIMIT 1
+    """)
+    if zips:
+        parts.append(f"Priciest zip: {zips[0]['zip_code']} (avg ${float(zips[0]['avg_p']):.0f})")
+
+    return ". ".join(parts) + "." if parts else "No pricing data in the warehouse yet."
+
+
+# Skills with real execution paths. Others remain definitions until wired.
+RUNNABLE_SKILLS = {
+    "competitive-brief": _skill_competitive_brief,
+    "pricing-analysis": _skill_pricing_analysis,
+}
+
+
+def run_skill(skill_name):
+    """Execute a runnable skill and record last_run/last_output on its row.
+
+    Returns the output summary, or None if the skill has no execution path.
+    """
+    fn = RUNNABLE_SKILLS.get(skill_name)
+    if not fn:
+        return None
+    summary = fn()
+    con = get_connection()
+    con.execute(
+        """UPDATE skills
+           SET last_run = CURRENT_TIMESTAMP, last_output = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE name = ?""",
+        [summary, skill_name],
+    )
+    con.close()
+    return summary
 
 
 # ════════════════════════════════════════════════════════════════════════

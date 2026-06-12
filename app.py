@@ -103,7 +103,8 @@ def get_dashboard_data():
         "booking_platform": YOUR_SHOP.get("booking_platform", ""),
         "has_proprietary_os": YOUR_SHOP.get("booking_os", {}).get("type") == "proprietary",
         "migrating_from": YOUR_SHOP.get("booking_os", {}).get("migrating_from"),
-        "os_features": YOUR_SHOP.get("booking_os", {}).get("features", []),
+        "os_features_live": YOUR_SHOP.get("booking_os", {}).get("features_live", []),
+        "os_features_planned": YOUR_SHOP.get("booking_os", {}).get("features_planned", []),
         "wholesale": YOUR_SHOP.get("revenue_model", {}).get("wholesale_membership", False),
     }
     d["prices"] = YOUR_SHOP.get("prices", {})
@@ -203,11 +204,37 @@ def get_dashboard_data():
         ORDER BY started_at DESC LIMIT 8
     """)
 
-    # Alerts
+    # Agent fleet — real run history per registered agent, from agent_runs
+    fleet_registry = [
+        ("pricing_scout", "PricingScout"), ("review_harvester", "ReviewHarvester"),
+        ("social_listener", "SocialListener"), ("shop_watcher", "ShopWatcher"),
+        ("platform_scout", "PlatformScout"), ("normalizer", "Normalizer"),
+        ("barber_enricher", "BarberEnricher"), ("delta_spotter", "DeltaSpotter"),
+        ("platform_analyzer", "PlatformAnalyzer"), ("scorecard", "Scorecard"),
+        ("skill_runner", "SkillRunner"), ("price_war_alert", "PriceWarAlert"),
+        ("reputation_radar", "ReputationRadar"), ("talent_tracker", "TalentTracker"),
+        ("weekly_digest", "WeeklyDigest"),
+    ]
+    run_stats = {r["agent_name"]: r for r in _q("""
+        SELECT agent_name, MAX(started_at) AS last_run, COUNT(*) AS run_count
+        FROM agent_runs GROUP BY agent_name
+    """)}
+    d["agent_fleet"] = [{
+        "display": display,
+        "last_run": run_stats.get(name, {}).get("last_run"),
+        "run_count": run_stats.get(name, {}).get("run_count", 0),
+    } for name, display in fleet_registry]
+    d["agents_executed"] = sum(1 for a in d["agent_fleet"] if a["run_count"])
+    fleet_last_runs = [a["last_run"] for a in d["agent_fleet"] if a["last_run"]]
+    d["last_agent_cycle"] = max(fleet_last_runs) if fleet_last_runs else None
+
+    # Alerts — from alerts_log, with competitor names
     d["alerts"] = _q("""
-        SELECT alert_type, severity, title, detail, created_at
-        FROM alerts_log
-        ORDER BY created_at DESC LIMIT 6
+        SELECT a.alert_type, a.severity, a.title, a.detail, a.created_at,
+               c.company_name
+        FROM alerts_log a
+        LEFT JOIN competitors c ON c.competitor_id = a.competitor_id
+        ORDER BY a.created_at DESC LIMIT 8
     """)
 
     # R&D projects — full data for organized display
@@ -227,7 +254,8 @@ def get_dashboard_data():
         d["skills"] = _q("""
             SELECT skill_id, name, display_name, category, description,
                    status, phase, pattern, priority, trigger_accuracy,
-                   execution_quality, token_efficiency, version, connected_to
+                   execution_quality, token_efficiency, version, connected_to,
+                   last_run, last_output
             FROM skills
             WHERE status != 'retired'
             ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1
@@ -235,6 +263,7 @@ def get_dashboard_data():
         """)
     except Exception:
         d["skills"] = []
+    d["skills_executed"] = sum(1 for s in d.get("skills", []) if s.get("last_run"))
 
     # Skills summary stats
     d["skills_by_cat"] = {}
@@ -2158,8 +2187,8 @@ body {
     </div>
     <div class="topbar-status">
       <div class="status-dot">
-        <span class="dot dot-green"></span>
-        Booking System Live
+        <span class="dot dot-yellow"></span>
+        Booking System: Planned
       </div>
       <div class="status-dot">
         <span class="dot {% if data.shop.migrating_from %}dot-yellow{% else %}dot-green{% endif %}"></span>
@@ -2463,7 +2492,7 @@ body {
       <span class="section-line"></span>
     </div>
     <div style="grid-column: span 12; font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: -8px; margin-bottom: 4px;">
-      Your proprietary tech stack. This is what separates you from every other shop using off-the-shelf booking software.
+      Your tech stack: the intelligence warehouse and agents are live; the proprietary booking platform is planned.
     </div>
 
     <!-- OS STATUS -->
@@ -2471,17 +2500,21 @@ body {
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Our Booking System</span>
-        <span class="card-badge {% if data.shop.has_proprietary_os %}badge-green{% else %}badge-red{% endif %}">
-          {% if data.shop.has_proprietary_os %}DEPLOYED{% else %}PENDING{% endif %}
-        </span>
+        <span class="card-badge badge-yellow">PLANNED</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        Your custom booking and operations platform. Built specifically for this shop. Not Booksy, not Vagaro &mdash; yours.
+        Your custom booking and operations platform &mdash; not yet built. The intelligence warehouse behind it is live; the booking features below are planned.
       </div>
-      {% for feat in data.shop.os_features %}
+      {% for feat in data.shop.os_features_live %}
       <div class="os-feat">
         <div class="check">&#10003;</div>
         <span>{{ feat }}</span>
+      </div>
+      {% endfor %}
+      {% for feat in data.shop.os_features_planned %}
+      <div class="os-feat" style="opacity: 0.55;">
+        <div class="check" style="background: rgba(251,191,36,0.12); color: #FBBF24;">&#9675;</div>
+        <span>{{ feat }} <span style="font-family: var(--font-mono); font-size: 9px; color: #FBBF24; letter-spacing: 1px;">PLANNED</span></span>
       </div>
       {% endfor %}
       {% if data.shop.migrating_from %}
@@ -2496,19 +2529,19 @@ body {
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Automated Agents</span>
-        <span class="card-badge badge-teal">13 Agents Running</span>
+        <span class="card-badge badge-teal">{{ data.agents_executed }} of {{ data.agent_fleet|length }} Have Run</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        13 AI agents running in the background, continuously collecting data on competitors, pricing, reviews, and social media.
+        {{ data.agent_fleet|length }} agents registered. They run on the scheduler (scouts 3x daily, analytics nightly, alerts every 4hrs) or on demand &mdash; not continuously. Status below is actual run history from the agent log.
+        {% if data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
       </div>
       <div class="agent-grid">
-        {% set agents = ['PricingScout', 'ReviewHarvester', 'SocialListener', 'ShopWatcher', 'PlatformScout', 'Normalizer', 'BarberEnricher', 'DeltaSpotter', 'PlatformAnalyzer', 'Scorecard', 'PriceWarAlert', 'ReputationRadar', 'WeeklyDigest'] %}
-        {% for agent in agents %}
+        {% for agent in data.agent_fleet %}
         <div class="agent-cell">
-          <span class="dot {% if loop.index <= 1 %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
-          <span class="agent-name">{{ agent }}</span>
-          <span class="agent-status" style="{% if loop.index <= 1 %}color: #34D399; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(250,250,250,0.04);{% endif %}">
-            {% if loop.index <= 1 %}LIVE{% else %}BUILT{% endif %}
+          <span class="dot {% if agent.run_count %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
+          <span class="agent-name">{{ agent.display }}</span>
+          <span class="agent-status" style="{% if agent.run_count %}color: #34D399; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(250,250,250,0.04);{% endif %}">
+            {% if agent.last_run %}RAN {{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
           </span>
         </div>
         {% endfor %}
@@ -2523,7 +2556,7 @@ body {
         <span class="card-badge badge-yellow">{% if data.alerts|length %}{{ data.alerts|length }} Alerts{% else %}No Alerts{% endif %}</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        Real-time notifications triggered by your agents when something important changes in your market.
+        Notifications written to the alert log by your agents when something changes in your market.
       </div>
       {% if data.alerts %}
         {% for alert in data.alerts %}
@@ -2532,6 +2565,9 @@ body {
                box-shadow: 0 0 6px {% if alert.severity == 'critical' %}rgba(230,57,70,0.4){% elif alert.severity == 'warning' %}rgba(251,191,36,0.4){% else %}rgba(46,196,182,0.4){% endif %};"></div>
           <div>
             <div class="alert-title">{{ alert.title }}</div>
+            <div style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing: 0.5px;">
+              {{ alert.alert_type }}{% if alert.company_name %} &middot; {{ alert.company_name }}{% endif %}{% if alert.created_at %} &middot; {{ alert.created_at.strftime('%b %d, %I:%M %p') if alert.created_at.strftime else alert.created_at }}{% endif %}
+            </div>
             {% if alert.detail %}
             <div class="alert-detail">{{ alert.detail[:80] }}</div>
             {% endif %}
@@ -2539,7 +2575,7 @@ body {
         </div>
         {% endfor %}
       {% else %}
-        <div class="empty">Everything looks good. No alerts right now.</div>
+        <div class="empty">Alert log is empty &mdash; no alerts have been generated yet.</div>
       {% endif %}
     </div>
 
@@ -2656,12 +2692,12 @@ body {
         </div>
         {% endfor %}
         <div class="stat-chip">
-          <div class="stat-chip-value" style="color: var(--teal);">{{ data.skills|selectattr('status', 'equalto', 'active')|list|length }}</div>
-          <div class="stat-chip-label">Live</div>
+          <div class="stat-chip-value" style="color: var(--teal);">{{ data.skills_executed }}</div>
+          <div class="stat-chip-label">Have Run</div>
         </div>
         <div class="stat-chip">
-          <div class="stat-chip-value" style="color: #FBBF24;">{{ data.skills_by_phase.get('test', 0) + data.skills_by_phase.get('build', 0) }}</div>
-          <div class="stat-chip-label">Testing</div>
+          <div class="stat-chip-value" style="color: #FBBF24;">{{ (data.skills|selectattr('status', 'equalto', 'design')|list|length) + (data.skills|selectattr('status', 'equalto', 'testing')|list|length) }}</div>
+          <div class="stat-chip-label">In Design / Testing</div>
         </div>
       </div>
     </div>
@@ -2689,10 +2725,14 @@ body {
         <div class="skill-card-header">
           <span class="pipeline-id">#{{ s.skill_id }}</span>
           <span class="skill-card-title">{{ s.display_name }}</span>
-          {% if s.status == 'active' %}
-          <span class="skill-tag" style="background: rgba(46,196,182,0.12); color: var(--teal-soft);">ACTIVE</span>
+          {% if s.last_run %}
+          <span class="skill-tag" style="background: rgba(46,196,182,0.12); color: var(--teal-soft);">RUNS</span>
+          {% elif s.status == 'active' %}
+          <span class="skill-tag" style="background: rgba(96,165,250,0.1); color: #60A5FA;">DEFINED</span>
           {% elif s.status == 'testing' %}
           <span class="skill-tag" style="background: rgba(251,191,36,0.1); color: #FBBF24;">TESTING</span>
+          {% else %}
+          <span class="skill-tag" style="background: rgba(250,250,250,0.06); color: var(--text-muted);">IN DESIGN</span>
           {% endif %}
         </div>
         {% if s.description %}
@@ -2718,25 +2758,33 @@ body {
         </div>
         {% endif %}
 
-        <!-- Live status: Last run, Output, Fed by -->
+        <!-- Run status: Last run, Output, Fed by — from the skills table -->
         <div style="margin-top: 10px; font-size: 11px; line-height: 1.8;">
           <div>
             <span style="color: var(--text-muted);">Last run:</span>
-            <span style="color: var(--white);">—</span>
+            {% if s.last_run %}
+            <span style="color: var(--white);">{{ s.last_run.strftime('%b %d, %I:%M %p') if s.last_run.strftime else s.last_run }}</span>
+            {% else %}
+            <span style="color: var(--text-muted);">never</span>
+            {% endif %}
           </div>
           <div>
             <span style="color: var(--text-muted);">Output:</span>
-            <span style="color: var(--white);">—</span>
+            {% if s.last_output %}
+            <span style="color: var(--white);">{{ s.last_output|e|truncate(140) }}</span>
+            {% else %}
+            <span style="color: var(--text-muted);">not yet generated</span>
+            {% endif %}
           </div>
           {% set skill_feeds = {
             "competitive-brief": "Scorecard Agent · Data Warehouse",
             "pricing-analysis": "Pricing Intelligence · Pricing Scout",
             "council-brief": "Advisory Council · Data Warehouse",
             "competitor-onboarding": "Pricing Scout · Review Harvester · Scorecard Agent",
-            "weekly-intel-cycle": "All 13 Agents · Alert System",
+            "weekly-intel-cycle": "All Registered Agents · Alert System",
             "rnd-project-setup": "R&D System · Data Warehouse",
             "warehouse-query-guide": "Data Warehouse (all 21 tables)",
-            "agent-orchestrator": "All 13 Agents",
+            "agent-orchestrator": "All Registered Agents",
             "expansion-readiness-check": "Advisory Council · Business Strategy",
             "site-selection-analysis": "Market Research · Demand Forecasting"
           } %}
