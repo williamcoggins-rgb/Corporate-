@@ -85,6 +85,66 @@ def _q(query, params=None):
         con.close()
 
 
+def _threat_reason(components_json):
+    """Turn a threat-score components dict into a plain-English sentence.
+
+    Components and their score ceilings (from the Scorecard agent):
+    pricing 0-3, reviews 0-2.5, social 0-2, momentum 0-1.5, platforms 0-1.
+    Each factor is normalized by its ceiling so they compare fairly.
+    """
+    ceilings = {
+        "pricing": 3.0, "reviews": 2.5, "social": 2.0,
+        "momentum": 1.5, "platforms": 1.0,
+    }
+    phrases = {
+        "pricing": {
+            "lead": "They compete hard on price and undercut most of the market",
+            "extra": "their prices undercut the market",
+        },
+        "reviews": {
+            "lead": "They have a strong reputation and loyal customers",
+            "extra": "they have a solid reputation with customers",
+        },
+        "social": {
+            "lead": "They are highly visible on social media and pull a lot of attention",
+            "extra": "they stay visible on social media",
+        },
+        "momentum": {
+            "lead": "They are growing fast right now",
+            "extra": "they are growing fast right now",
+        },
+        "platforms": {
+            "lead": "They are easy to find and book across multiple booking apps",
+            "extra": "they are easy to book online",
+        },
+    }
+    try:
+        comps = json.loads(components_json) if isinstance(components_json, str) else dict(components_json or {})
+    except (ValueError, TypeError):
+        comps = {}
+
+    ranked = []
+    for key, ceiling in ceilings.items():
+        try:
+            val = float(comps.get(key) or 0)
+        except (ValueError, TypeError):
+            val = 0.0
+        if val > 0:
+            ranked.append((val / ceiling, key))
+    ranked.sort(reverse=True)
+
+    if not ranked:
+        return "Not enough signal yet to assess."
+
+    top = [key for _, key in ranked[:3]]
+    sentence = phrases[top[0]]["lead"]
+    if len(top) == 2:
+        sentence += ", plus " + phrases[top[1]]["extra"]
+    elif len(top) >= 3:
+        sentence += ", plus " + phrases[top[1]]["extra"] + " and " + phrases[top[2]]["extra"]
+    return sentence + "."
+
+
 def get_dashboard_data():
     """Pull all data the dashboard needs in one pass."""
     d = {}
@@ -230,6 +290,8 @@ def get_dashboard_data():
         WHERE l.rn = 1
         ORDER BY l.score DESC LIMIT 8
     """)
+    for t in d["top_threats"]:
+        t["reason"] = _threat_reason(t.get("components"))
 
     # Agent runs
     d["agent_runs"] = _q("""
@@ -2261,7 +2323,7 @@ body {
               <span style="font-family: var(--font-mono); font-weight: 600; {% if (t.threat_score or 0) >= 7 %}color: var(--red);{% elif (t.threat_score or 0) >= 4 %}color: #B45309;{% else %}color: var(--teal);{% endif %}">{{ "%.1f"|format(t.threat_score or 0) }}/10</span>
             </td>
             <td style="font-size: 11px; line-height: 1.4;">
-              {% if t.components %}{{ t.components }}{% elif (t.threat_score or 0) >= 7 %}High ratings, strong online presence, competitive pricing{% elif (t.threat_score or 0) >= 4 %}Growing reputation in {{ t.neighborhood or 'the area' }}{% else %}On the radar — monitoring for changes{% endif %}
+              {{ t.reason }}
             </td>
           </tr>
           {% endfor %}
