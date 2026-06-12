@@ -2433,7 +2433,7 @@ body {
         <span class="card-badge badge-red">Live Updates</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        Events collected by your agents — new shop openings, expansions, franchise deals, and controversies in your market.
+        Changes detected by your agents — price moves, rating shifts, review spikes, new openings, expansions, and more.
       </div>
       {% if data.recent_moves %}
         {% for move in data.recent_moves %}
@@ -2441,6 +2441,9 @@ body {
           <div>
             <span class="move-who">{{ move.company_name }}</span>
             <span class="move-type">{{ move.move_type }}</span>
+            {% if move.move_date %}
+            <span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">{{ move.move_date }}</span>
+            {% endif %}
           </div>
           <div class="move-desc">{{ move.description|e }}</div>
         </div>
