@@ -2789,7 +2789,7 @@ body {
             "weekly-intel-cycle": "All automated data collectors and the alert system",
             "rnd-project-setup": "Your R&D project tracker and business data",
             "warehouse-query-guide": "Your full business database (all tables)",
-            "agent-orchestrator": "All 13 automated agents",
+            "agent-orchestrator": "All 15 automated agents",
             "expansion-readiness-check": "Your advisory board criteria and live business data",
             "site-selection-analysis": "Market research data and demand estimates"
           } %}

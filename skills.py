@@ -306,7 +306,7 @@ def _seed_skills():
             "trigger_accuracy": 90.0,
             "execution_quality": 86.0,
             "token_efficiency": 84.0,
-            "connected_to": "agents/runner, agents/base, all 13 agents",
+            "connected_to": "agents/runner, agents/base, all 15 agents",
             "version": "1.0.0",
         },
         {
@@ -356,9 +356,10 @@ def _seed_skills():
     if count > 0:
         for s in skills:
             con.execute(
-                """UPDATE skills SET display_name = ?, description = ?
+                """UPDATE skills SET display_name = ?, description = ?,
+                       connected_to = ?
                    WHERE name = ?""",
-                [s["display_name"], s["description"], s["name"]],
+                [s["display_name"], s["description"], s["connected_to"], s["name"]],
             )
         con.close()
         return
