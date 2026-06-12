@@ -3,7 +3,21 @@
 import os
 import duckdb
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "competitive_intel.duckdb")
+_LOCAL_FALLBACK = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "competitive_intel.duckdb")
+
+
+def _get_db_path():
+    """Resolve the DuckDB file path from environment, falling back to local."""
+    explicit = os.environ.get("WAREHOUSE_DB_PATH")
+    if explicit:
+        return explicit
+    vol = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if vol:
+        return os.path.join(vol, "warehouse.duckdb")
+    return _LOCAL_FALLBACK
+
+
+DB_PATH = _get_db_path()
 
 
 def get_connection():

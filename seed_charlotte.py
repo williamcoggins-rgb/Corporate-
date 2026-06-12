@@ -6,18 +6,10 @@ I Am Black Business directory, QCity Metro, Axios Charlotte, WCNC.
 Run: python seed_charlotte.py
 """
 
-import os
 from warehouse.db import get_connection, init_schema
-
-DB_PATH = "data/competitive_intel.duckdb"
 
 
 def seed():
-    # Fresh start
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-        print("Removed old database")
-
     init_schema()
     con = get_connection()
 

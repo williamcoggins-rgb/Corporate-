@@ -150,12 +150,29 @@ def get_dashboard_data():
         ORDER BY cm.move_date DESC LIMIT 6
     """)
 
-    # Social leaders
+    # Social leaders — one row per distinct brand (latest snapshot, highest followers)
     d["social_leaders"] = _q("""
-        SELECT c.company_name, cs.followers, cs.engagement_rate, cs.platform
-        FROM competitor_social cs
-        JOIN competitors c ON c.competitor_id = cs.competitor_id
-        ORDER BY cs.followers DESC LIMIT 5
+        WITH per_competitor AS (
+            SELECT cs.competitor_id, c.company_name, cs.platform,
+                   cs.followers, cs.engagement_rate,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY cs.competitor_id
+                       ORDER BY cs.followers DESC, cs.snapshot_date DESC
+                   ) AS rn
+            FROM competitor_social cs
+            JOIN competitors c ON c.competitor_id = cs.competitor_id
+        ),
+        best AS (
+            SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY LEFT(company_name, 10)
+                ORDER BY followers DESC
+            ) AS brand_rn
+            FROM per_competitor WHERE rn = 1
+        )
+        SELECT company_name, platform, followers, engagement_rate
+        FROM best WHERE brand_rn = 1
+        ORDER BY followers DESC
+        LIMIT 5
     """)
 
     # Barber talent pool
@@ -2180,10 +2197,9 @@ body {
       <div class="spotlight"></div>
       <div class="card-header">
         <span class="card-label">Revenue Overview</span>
-        <span class="card-badge badge-teal">LIVE</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-        Your current monthly income from the shop. Target is $4,500/month. All data is pulled live from your booking system.
+        Current monthly income (manually entered). Target is $4,500/month.
       </div>
       <div class="stat-row">
         <div class="stat-big white">${{ "{:,.0f}".format(data.shop.monthly_gross) }}</div>

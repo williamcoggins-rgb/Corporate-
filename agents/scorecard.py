@@ -242,6 +242,104 @@ class Scorecard(BaseAgent):
         con.close()
         return [dict(zip(columns, row)) for row in rows]
 
+    def compute_threat_score(self, competitor_id):
+        """Compute a 0-10 threat score for a competitor from available signals.
+
+        Factors (weighted):
+          - pricing_pressure (0-3): lower avg price = more threatening
+          - review_strength (0-2.5): higher avg rating with more reviews
+          - social_reach (0-2): follower count
+          - momentum (0-1.5): recent competitor_moves
+          - platform_presence (0-1): how many booking platforms
+        """
+        con = get_connection()
+        row = con.execute(
+            "SELECT company_name, zip_code FROM competitors WHERE competitor_id = ?",
+            [competitor_id],
+        ).fetchone()
+        if not row:
+            con.close()
+            return None
+        name = row[0]
+
+        # Pricing pressure: avg latest price vs William's $45 Fade
+        prices = con.execute("""
+            WITH latest AS (
+                SELECT price FROM price_history
+                WHERE competitor_id = ?
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY service_name ORDER BY recorded_at DESC
+                ) = 1
+            )
+            SELECT AVG(price) as avg_p FROM latest
+        """, [competitor_id]).fetchone()
+        avg_price = float(prices[0]) if prices and prices[0] else None
+        if avg_price is not None and avg_price > 0:
+            pricing_score = max(0, min(3, (50 - avg_price) / 50 * 3 + 1.5))
+        else:
+            pricing_score = 0
+
+        # Review strength
+        reviews = con.execute("""
+            SELECT COUNT(*) as cnt, AVG(rating) as avg_r
+            FROM review_snapshots WHERE competitor_id = ?
+        """, [competitor_id]).fetchone()
+        rev_count = reviews[0] or 0
+        avg_rating = float(reviews[1]) if reviews[1] else 0
+        review_score = min(2.5, (avg_rating / 5) * 1.5 + min(1, rev_count / 20))
+
+        # Social reach
+        social = con.execute("""
+            SELECT SUM(followers) FROM (
+                SELECT followers FROM competitor_social
+                WHERE competitor_id = ?
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY platform ORDER BY snapshot_date DESC
+                ) = 1
+            )
+        """, [competitor_id]).fetchone()
+        total_followers = social[0] or 0
+        social_score = min(2, total_followers / 12000 * 2)
+
+        # Momentum: moves in last 90 days
+        moves = con.execute("""
+            SELECT COUNT(*) FROM competitor_moves
+            WHERE competitor_id = ?
+              AND move_date >= CURRENT_DATE - INTERVAL '90' DAY
+        """, [competitor_id]).fetchone()
+        momentum_score = min(1.5, (moves[0] or 0) * 0.5)
+
+        # Platform presence
+        platforms = con.execute("""
+            SELECT COUNT(DISTINCT platform) FROM platform_profiles
+            WHERE competitor_id = ?
+        """, [competitor_id]).fetchone()
+        platform_score = min(1, (platforms[0] or 0) / 3)
+
+        threat = round(pricing_score + review_score + social_score
+                       + momentum_score + platform_score, 1)
+        threat = min(10, threat)
+
+        components = {
+            "pricing": round(pricing_score, 2),
+            "reviews": round(review_score, 2),
+            "social": round(social_score, 2),
+            "momentum": round(momentum_score, 2),
+            "platforms": round(platform_score, 2),
+        }
+
+        sid = con.execute("SELECT nextval('seq_score')").fetchone()[0]
+        con.execute(
+            """INSERT INTO competitor_scores
+               (id, competitor_id, score_type, score, components)
+               VALUES (?, ?, 'threat', ?, ?)""",
+            [sid, competitor_id, threat, json.dumps(components)],
+        )
+        con.close()
+        self.records_processed += 1
+        return {"competitor_id": competitor_id, "name": name, "threat": threat,
+                "components": components}
+
     def execute(self):
         self.log("Generating scorecards for all active competitors...")
         con = get_connection()
@@ -255,6 +353,18 @@ class Scorecard(BaseAgent):
             if card:
                 self.log(f"  {name}: hotness={card['hotness_score']}, "
                          f"rating={card['avg_rating']}, followers={card['total_followers']}")
+
+        self.log("\nComputing threat scores...")
+        threats = []
+        for cid, name in competitors:
+            result = self.compute_threat_score(cid)
+            if result:
+                threats.append(result)
+                self.log(f"  {name}: threat={result['threat']}")
+        threats.sort(key=lambda t: t["threat"], reverse=True)
+        if threats:
+            top3 = ", ".join(f"{t['name']} ({t['threat']})" for t in threats[:3])
+            self.log(f"\nTop 3 threats: {top3}")
 
         self.log("\nNeighborhood rankings:")
         rankings = self.rank_by_neighborhood()
