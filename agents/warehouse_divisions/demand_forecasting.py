@@ -1,5 +1,11 @@
-"""Division 3 — Demand Forecasting
+"""RETIRED — Division 3 — Demand Forecasting
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires daily_booking_volume, local_events tables).
+Planned for Phase Two once booking-OS feeds exist.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Combines booking OS history with external signals (events, seasons,
 competitor moves) to predict busy and slow periods before they happen.
 

@@ -59,6 +59,8 @@ AGENTS = {
     "price_war_alert": PriceWarAlert,
     "reputation_radar": ReputationRadar,
     "talent_tracker": TalentTracker,
+    # weekly_digest has its own dedicated Sunday 8am cron job in scheduler.py
+    # and is NOT part of the Tier 4 auto-run set to prevent double-firing.
     "weekly_digest": WeeklyDigest,
 }
 
@@ -66,7 +68,7 @@ TIERS = {
     "tier1": ["pricing_scout", "review_harvester", "social_listener", "shop_watcher", "platform_scout"],
     "tier2": ["normalizer", "barber_enricher", "delta_spotter", "platform_analyzer"],
     "tier3": ["scorecard", "skill_runner", "weekly_snapshotter", "pricing_strategist", "market_pulse"],
-    "tier4": ["price_war_alert", "reputation_radar", "talent_tracker", "weekly_digest"],
+    "tier4": ["price_war_alert", "reputation_radar", "talent_tracker"],
 }
 
 

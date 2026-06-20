@@ -1,5 +1,12 @@
-"""Division 1 — Pricing Intelligence
+"""RETIRED — Division 1 — Pricing Intelligence
 
+STATUS: RETIRED as of Phase One (June 2026).
+SUPERSEDED BY: agents/pricing_strategist.py (Tier 3, registered in runner.py).
+The new Pricing Strategist absorbs the Analyst function and writes Option C
+plain-English narratives into the pricing_recommendations table.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Connects competitor pricing data (already in warehouse) with your own
 booking OS data to answer: Are we priced right?
 

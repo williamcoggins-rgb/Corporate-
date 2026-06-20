@@ -1,5 +1,11 @@
-"""Division 2 — Client Acquisition Intelligence
+"""RETIRED — Division 2 — Client Acquisition Intelligence
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires client_origins table, not in schema).
+Planned for Phase Two once booking-OS feeds exist.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Matches new client geography from your booking OS against the competitor
 map in the warehouse to answer: Where are we winning clients, and where
 are we invisible?

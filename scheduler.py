@@ -4,11 +4,14 @@ Fires Managed Agent sessions on the correct cadence.
 Runs inside the Flask app via APScheduler (or standalone).
 
 SCHEDULE:
-  Tier 1 (Scout)      → 6am, 12pm, 6pm daily
-  Tier 2 (Process)    → 30 min after each Tier 1 run
-  Tier 3 (Analytics)  → 11pm nightly
-  Tier 4 (Alerts)     → Every 4 hours
-  Weekly Digest       → Sunday 8am
+  Tier 1 (Scout)       → 6am, 12pm, 6pm daily
+  Tier 2 (Process)     → 30 min after each Tier 1 run
+  Tier 3 (Analytics)   → 11pm nightly
+  Tier 4 (Alerts)      → Every 4 hours (alerts only, digest removed)
+  Weekly Snapshotter   → Sunday 11:30pm
+  Pricing Strategist   → Monday 12:00am
+  Market Pulse         → 1st of month 1:00am
+  Weekly Digest        → Sunday 8am (dedicated job, not in Tier 4)
 
 All times Eastern (America/New_York)
 
@@ -213,7 +216,7 @@ def init_scheduler(app=None):
     log.info("    Tier 1 (Scout)       → 6am, 12pm, 6pm daily ET")
     log.info("    Tier 2 (Process)     → 30 min after each Tier 1")
     log.info("    Tier 3 (Analytics)   → 11pm nightly ET")
-    log.info("    Tier 4 (Alerts)      → Every 4 hours ET")
+    log.info("    Tier 4 (Alerts)      → Every 4 hours ET (alerts only)")
     log.info("    Weekly Snapshotter   → Sunday 11:30pm ET")
     log.info("    Pricing Strategist   → Monday 12:00am ET")
     log.info("    Market Pulse         → 1st of month 1:00am ET")

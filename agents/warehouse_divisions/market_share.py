@@ -1,5 +1,12 @@
-"""Division 6 — Market Share Tracking
+"""RETIRED — Division 6 — Market Share Tracking
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires your_monthly_volume table).
+The market_pulse.py agent partially covers market-wide aggregation using
+competitor data only. Full market share requires your own booking volume.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Estimates your share of the Charlotte barber market using competitor
 review velocity as a proxy for their volume vs. your actual bookings.
 
