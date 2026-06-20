@@ -252,6 +252,83 @@ def init_schema():
         );
     """)
 
+    # --- Phase One: Market Intelligence tables ---
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_competitor_snapshots (
+            snapshot_id INTEGER PRIMARY KEY,
+            competitor_id INTEGER NOT NULL,
+            snapshot_week DATE NOT NULL,
+            avg_price REAL,
+            rating REAL,
+            review_count INTEGER,
+            follower_count INTEGER,
+            barber_count INTEGER,
+            price_delta REAL,
+            rating_delta REAL,
+            review_delta INTEGER,
+            follower_delta INTEGER,
+            barber_delta INTEGER,
+            narrative TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (competitor_id, snapshot_week)
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS market_period_summaries (
+            summary_id INTEGER PRIMARY KEY,
+            period_type VARCHAR NOT NULL,
+            period_start DATE NOT NULL,
+            period_end DATE NOT NULL,
+            neighborhood VARCHAR,
+            competitor_count INTEGER,
+            avg_market_price REAL,
+            median_market_price REAL,
+            avg_rating REAL,
+            total_reviews INTEGER,
+            new_shops INTEGER,
+            closed_shops INTEGER,
+            price_range_low REAL,
+            price_range_high REAL,
+            narrative TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (period_type, period_start, neighborhood)
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS competitor_trends (
+            trend_id INTEGER PRIMARY KEY,
+            competitor_id INTEGER NOT NULL,
+            trend_type VARCHAR NOT NULL,
+            detected_date DATE NOT NULL,
+            metric_name VARCHAR,
+            metric_value REAL,
+            metric_prior REAL,
+            severity VARCHAR DEFAULT 'info',
+            narrative TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS pricing_recommendations (
+            recommendation_id INTEGER PRIMARY KEY,
+            recommendation_date DATE NOT NULL,
+            service_name VARCHAR NOT NULL,
+            your_current_price REAL,
+            market_avg_price REAL,
+            market_median_price REAL,
+            recommended_action VARCHAR NOT NULL,
+            confidence VARCHAR DEFAULT 'medium',
+            competitor_context TEXT,
+            narrative TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (recommendation_date, service_name)
+        );
+    """)
+
     con.execute("""
         CREATE SEQUENCE IF NOT EXISTS seq_competitor START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_product START 1;
@@ -268,6 +345,10 @@ def init_schema():
         CREATE SEQUENCE IF NOT EXISTS seq_score START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_platform_profile START 1;
         CREATE SEQUENCE IF NOT EXISTS seq_platform_solo START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_weekly_snapshot START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_market_summary START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_competitor_trend START 1;
+        CREATE SEQUENCE IF NOT EXISTS seq_pricing_rec START 1;
     """)
 
     con.close()

@@ -28,6 +28,9 @@ from agents.delta_spotter import DeltaSpotter
 from agents.platform_analyzer import PlatformAnalyzer
 from agents.scorecard import Scorecard
 from agents.skill_runner import SkillRunner
+from agents.weekly_snapshotter import WeeklySnapshotter
+from agents.pricing_strategist import PricingStrategist
+from agents.market_pulse import MarketPulse
 from agents.alerts import PriceWarAlert, ReputationRadar, TalentTracker
 from agents.digest import WeeklyDigest
 from warehouse.db import init_schema
@@ -49,6 +52,9 @@ AGENTS = {
     # Tier 3: Analytics (Analytics Team)
     "scorecard": Scorecard,
     "skill_runner": SkillRunner,
+    "weekly_snapshotter": WeeklySnapshotter,
+    "pricing_strategist": PricingStrategist,
+    "market_pulse": MarketPulse,
     # Tier 4: Alerts (Early Warning System)
     "price_war_alert": PriceWarAlert,
     "reputation_radar": ReputationRadar,
@@ -59,7 +65,7 @@ AGENTS = {
 TIERS = {
     "tier1": ["pricing_scout", "review_harvester", "social_listener", "shop_watcher", "platform_scout"],
     "tier2": ["normalizer", "barber_enricher", "delta_spotter", "platform_analyzer"],
-    "tier3": ["scorecard", "skill_runner"],
+    "tier3": ["scorecard", "skill_runner", "weekly_snapshotter", "pricing_strategist", "market_pulse"],
     "tier4": ["price_war_alert", "reputation_radar", "talent_tracker", "weekly_digest"],
 }
 
