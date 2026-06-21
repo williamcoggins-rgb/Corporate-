@@ -4,11 +4,14 @@ Fires Managed Agent sessions on the correct cadence.
 Runs inside the Flask app via APScheduler (or standalone).
 
 SCHEDULE:
-  Tier 1 (Scout)      → 6am, 12pm, 6pm daily
-  Tier 2 (Process)    → 30 min after each Tier 1 run
-  Tier 3 (Analytics)  → 11pm nightly
-  Tier 4 (Alerts)     → Every 4 hours
-  Weekly Digest       → Sunday 8am
+  Tier 1 (Scout)       → 6am, 12pm, 6pm daily
+  Tier 2 (Process)     → 30 min after each Tier 1 run
+  Tier 3 (Analytics)   → 11pm nightly
+  Tier 4 (Alerts)      → Every 4 hours (alerts only, digest removed)
+  Weekly Snapshotter   → Sunday 11:30pm
+  Pricing Strategist   → Monday 12:00am
+  Market Pulse         → 1st of month 1:00am
+  Weekly Digest        → Sunday 8am (dedicated job, not in Tier 4)
 
 All times Eastern (America/New_York)
 
@@ -76,6 +79,33 @@ def run_tier4():
     else:
         log.warning("  ✗ Tier 4 session failed to launch")
     return session_id
+
+
+def run_weekly_snapshotter():
+    log.info("▶ WEEKLY SNAPSHOTTER — Capturing competitor state")
+    from agents.runner import run_agents
+    results = run_agents(["weekly_snapshotter"])
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Snapshotter complete: {completed}/{len(results)}")
+    return results
+
+
+def run_pricing_strategist():
+    log.info("▶ PRICING STRATEGIST — Analyzing price positioning")
+    from agents.runner import run_agents
+    results = run_agents(["pricing_strategist"])
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Pricing Strategist complete: {completed}/{len(results)}")
+    return results
+
+
+def run_market_pulse():
+    log.info("▶ MARKET PULSE — Generating period summaries")
+    from agents.runner import run_agents
+    results = run_agents(["market_pulse"])
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Market Pulse complete: {completed}/{len(results)}")
+    return results
 
 
 def run_weekly_digest():
@@ -148,6 +178,27 @@ def init_scheduler(app=None):
         replace_existing=True, misfire_grace_time=300,
     )
 
+    # Weekly Snapshotter: Sunday 11:30pm
+    scheduler.add_job(
+        run_weekly_snapshotter, CronTrigger(day_of_week="sun", hour=23, minute=30),
+        id="weekly_snapshotter", name="Weekly Snapshotter — Sunday Snapshot",
+        replace_existing=True, misfire_grace_time=600,
+    )
+
+    # Pricing Strategist: Monday 12am (after Snapshotter)
+    scheduler.add_job(
+        run_pricing_strategist, CronTrigger(day_of_week="mon", hour=0, minute=0),
+        id="pricing_strategist", name="Pricing Strategist — Monday Analysis",
+        replace_existing=True, misfire_grace_time=600,
+    )
+
+    # Market Pulse: 1st of month 1am
+    scheduler.add_job(
+        run_market_pulse, CronTrigger(day=1, hour=1, minute=0),
+        id="market_pulse", name="Market Pulse — Monthly Summary",
+        replace_existing=True, misfire_grace_time=600,
+    )
+
     # Weekly digest: Sunday 8am
     scheduler.add_job(
         run_weekly_digest, CronTrigger(day_of_week="sun", hour=8, minute=0),
@@ -162,11 +213,14 @@ def init_scheduler(app=None):
     log.info(f"  Agent ID: {agent_id or 'NOT SET — run managed_agent.py create'}")
     log.info("━" * 60)
     log.info("  Schedule:")
-    log.info("    Tier 1 (Scout)     → 6am, 12pm, 6pm daily ET")
-    log.info("    Tier 2 (Process)   → 30 min after each Tier 1")
-    log.info("    Tier 3 (Analytics) → 11pm nightly ET")
-    log.info("    Tier 4 (Alerts)    → Every 4 hours ET")
-    log.info("    Weekly Digest      → Sunday 8am ET")
+    log.info("    Tier 1 (Scout)       → 6am, 12pm, 6pm daily ET")
+    log.info("    Tier 2 (Process)     → 30 min after each Tier 1")
+    log.info("    Tier 3 (Analytics)   → 11pm nightly ET")
+    log.info("    Tier 4 (Alerts)      → Every 4 hours ET (alerts only)")
+    log.info("    Weekly Snapshotter   → Sunday 11:30pm ET")
+    log.info("    Pricing Strategist   → Monday 12:00am ET")
+    log.info("    Market Pulse         → 1st of month 1:00am ET")
+    log.info("    Weekly Digest        → Sunday 8am ET")
     log.info("━" * 60)
 
     return scheduler
@@ -227,6 +281,9 @@ if __name__ == "__main__":
             "tier3": run_tier3,
             "tier4": run_tier4,
             "digest": run_weekly_digest,
+            "snapshotter": run_weekly_snapshotter,
+            "pricing": run_pricing_strategist,
+            "pulse": run_market_pulse,
         }
         fn = tier_map.get(tier)
         if not fn:

@@ -1,5 +1,11 @@
-"""Division 7 — Site Selection Intelligence
+"""RETIRED — Division 7 — Site Selection Intelligence
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires site_candidates, zip_demographics,
+            client_origins tables). Planned for Phase Two.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Layers client geography + competitor density + competitor weakness scores
 to rank potential shop locations by data, not gut feel.
 

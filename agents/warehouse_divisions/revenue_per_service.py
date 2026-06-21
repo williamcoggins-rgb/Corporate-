@@ -1,5 +1,11 @@
-"""Division 4 — Revenue per Service Analysis
+"""RETIRED — Division 4 — Revenue per Service Analysis
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires service_economics table).
+Planned for Phase Two once booking-OS feeds exist.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Crosses finance OS (cost of supplies per service) with booking OS
 (frequency, tips, duration) to find the most profitable service — not
 just the highest priced.

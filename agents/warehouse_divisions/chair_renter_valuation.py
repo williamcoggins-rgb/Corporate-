@@ -1,5 +1,11 @@
-"""Division 5 — Chair Renter Valuation
+"""RETIRED — Division 5 — Chair Renter Valuation
 
+STATUS: RETIRED as of Phase One (June 2026).
+BLOCKED ON: booking-OS integration (requires chair_utilization, market_chair_rates tables).
+Planned for Phase Two once booking-OS feeds exist.
+NOT registered, NOT scheduled. See agents/warehouse_divisions/README.md to revive.
+
+Original description:
 Uses your demand data to model exactly what each chair is worth per hour,
 per day, per week.  Sets renter rates based on actual numbers, not gut feel.
 
