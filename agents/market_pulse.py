@@ -13,6 +13,7 @@ from warehouse.snapshots import insert_market_summary
 
 
 QUARTER_ENDS = {3, 6, 9, 12}
+MARKET_WIDE = "__market__"
 
 
 class MarketPulse(BaseAgent):
@@ -24,7 +25,7 @@ class MarketPulse(BaseAgent):
         con = get_connection()
         hood_filter = ""
         params = []
-        if neighborhood:
+        if neighborhood and neighborhood != MARKET_WIDE:
             hood_filter = "AND c.neighborhood = ?"
             params.append(neighborhood)
 
@@ -102,7 +103,7 @@ class MarketPulse(BaseAgent):
 
     def _build_narrative(self, period_type, period_start, period_end,
                           neighborhood, stats):
-        scope = neighborhood if neighborhood else "Charlotte market"
+        scope = neighborhood if neighborhood and neighborhood != MARKET_WIDE else "Charlotte market"
         period_label = f"{period_start.strftime('%b %d')} to {period_end.strftime('%b %d, %Y')}"
 
         parts = []
@@ -147,27 +148,27 @@ class MarketPulse(BaseAgent):
         return [r[0] for r in rows]
 
     def _write_summary(self, period_type, period_start, period_end, neighborhood=None):
-        stats = self._gather_stats(period_start, period_end, neighborhood)
+        db_neighborhood = neighborhood if neighborhood else MARKET_WIDE
+        stats = self._gather_stats(period_start, period_end, db_neighborhood)
         narrative = self._build_narrative(
-            period_type, period_start, period_end, neighborhood, stats
+            period_type, period_start, period_end, db_neighborhood, stats
         )
+        label = neighborhood or "MARKET-WIDE"
 
         try:
             insert_market_summary(
                 period_type=period_type,
                 period_start=period_start,
                 period_end=period_end,
-                neighborhood=neighborhood,
+                neighborhood=db_neighborhood,
                 narrative=narrative,
                 **stats,
             )
             self.records_processed += 1
-            label = neighborhood or "MARKET-WIDE"
             self.log(f"  [{period_type}] {label}: {stats['competitor_count']} shops, "
                      f"avg ${stats['avg_market_price'] or 0:.0f}")
         except Exception as e:
             if "Constraint Error" in str(e) or "UNIQUE" in str(e).upper():
-                label = neighborhood or "MARKET-WIDE"
                 self.log(f"  [{period_type}] {label}: Already summarized, skipping")
             else:
                 raise
