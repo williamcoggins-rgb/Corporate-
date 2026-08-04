@@ -371,7 +371,7 @@ def get_dashboard_data():
             FROM competitor_scores cs
             WHERE cs.score_type = 'hotness'
         )
-        SELECT c.company_name, c.neighborhood, c.zip_code, c.notes,
+        SELECT c.competitor_id, c.company_name, c.neighborhood, c.zip_code, c.notes,
                c.ownership_type, c.founded_year, c.business_model,
                lt.score as threat_score,
                lh.components as hotness_components
@@ -386,6 +386,42 @@ def get_dashboard_data():
             t.get("neighborhood"), t.get("zip_code"), t.get("company_name"), None
         )
         t["reason"] = _shop_threat_reason(t)
+
+    # ── Data freshness ──────────────────────────────────────────────────
+    # The Jun 12 baseline thaws unevenly as Cowork feeds new dated rows shop by
+    # shop. Every panel/agent/shop shows "data as of <max observation date>"
+    # from the REAL rows it draws on — not one blanket "stale" label. Baseline
+    # rows are never overwritten; new observations append with their own dates.
+    def _max_date(sql):
+        r = _q(sql)
+        return r[0]["d"] if r and r[0]["d"] else None
+
+    d["freshness"] = {
+        "price_history": _max_date(
+            "SELECT MAX(CAST(recorded_at AS DATE)) AS d FROM price_history"),
+        "review_snapshots": _max_date(
+            "SELECT MAX(COALESCE(review_date, CAST(collected_at AS DATE))) AS d FROM review_snapshots"),
+        "competitor_social": _max_date(
+            "SELECT MAX(snapshot_date) AS d FROM competitor_social"),
+        "competitor_moves": _max_date(
+            "SELECT MAX(move_date) AS d FROM competitor_moves"),
+        "platform_profiles": _max_date(
+            "SELECT MAX(CAST(collected_at AS DATE)) AS d FROM platform_profiles"),
+    }
+    _fresh_vals = [v for v in d["freshness"].values() if v]
+    d["data_as_of"] = max(_fresh_vals) if _fresh_vals else None
+
+    # Per-shop freshness: newest observation date across each competitor's data.
+    _shop_fresh = {r["cid"]: r["d"] for r in _q("""
+        SELECT competitor_id AS cid, MAX(d) AS d FROM (
+            SELECT competitor_id, CAST(recorded_at AS DATE) AS d FROM price_history
+            UNION ALL SELECT competitor_id, COALESCE(review_date, CAST(collected_at AS DATE)) FROM review_snapshots
+            UNION ALL SELECT competitor_id, snapshot_date FROM competitor_social
+            UNION ALL SELECT competitor_id, move_date FROM competitor_moves
+        ) t GROUP BY competitor_id
+    """)}
+    for t in d["top_threats"]:
+        t["data_as_of"] = _shop_fresh.get(t.get("competitor_id"))
 
     # Agent runs
     d["agent_runs"] = _q("""
@@ -432,17 +468,29 @@ def get_dashboard_data():
     } for name, display in COWORK_STREAMS]
     d["cowork_last_run"] = cowork_last
 
+    # Each scout's freshness is the max date of the data type it feeds; every
+    # other agent derives from the whole warehouse, so it uses the overall date.
+    AGENT_SOURCE = {
+        "pricing_scout": "price_history",
+        "review_harvester": "review_snapshots",
+        "social_listener": "competitor_social",
+        "shop_watcher": "competitor_moves",
+        "platform_scout": "platform_profiles",
+    }
     fleet = []
     for name, display in fleet_registry:
+        data_as_of = d["freshness"].get(AGENT_SOURCE[name]) if name in AGENT_SOURCE else d["data_as_of"]
         if name in TIER1_SCOUTS:
             # Tier-1 data now arrives via Cowork; surface that real activity
             # instead of the scout's own (permanently empty) run history.
             fleet.append({"display": display, "last_run": cowork_last,
-                          "run_count": cowork_count, "source": "cowork"})
+                          "run_count": cowork_count, "source": "cowork",
+                          "data_as_of": data_as_of})
         else:
             st = run_stats.get(name, {})
             fleet.append({"display": display, "last_run": st.get("last_run"),
-                          "run_count": st.get("run_count", 0), "source": "local"})
+                          "run_count": st.get("run_count", 0), "source": "local",
+                          "data_as_of": data_as_of})
     d["agent_fleet"] = fleet
     d["agents_executed"] = sum(1 for a in d["agent_fleet"] if a["run_count"])
     fleet_last_runs = [a["last_run"] for a in d["agent_fleet"] if a["last_run"]]
@@ -2384,7 +2432,7 @@ body {
         <tbody>
           {% for t in data.top_threats %}
           <tr>
-            <td style="font-weight: 500;">{{ t.company_name }}</td>
+            <td style="font-weight: 500;">{{ t.company_name }}{% if t.data_as_of %}<div style="font-size: 9px; font-weight: 400; font-family: var(--font-mono); color: var(--text-muted); margin-top: 2px;">data as of {{ t.data_as_of.strftime('%b %d') if t.data_as_of.strftime else t.data_as_of }}</div>{% endif %}</td>
             <td style="font-size: 11px; color: var(--text-secondary);">{{ t.neighborhood or t.zip_code or 'Charlotte' }}</td>
             <td>
               <span style="font-family: var(--font-mono); font-weight: 600; {% if (t.threat_score or 0) >= 7 %}color: var(--red);{% elif (t.threat_score or 0) >= 4 %}color: #B45309;{% else %}color: var(--teal);{% endif %}">{{ "%.1f"|format(t.threat_score or 0) }}/10</span>
@@ -2518,7 +2566,7 @@ body {
         <span class="card-badge badge-teal">{{ data.agents_executed }} of {{ data.agent_fleet|length }} Have Run</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        {{ data.agent_fleet|length }} agents registered. Tier 1 (the scouts) is now fed by <strong>Cowork</strong> through the ingest endpoints; the rest run locally on the warehouse. Each row shows real last-run activity from the agent log &mdash; &ldquo;NO RUNS YET&rdquo; until it has actually run.
+        {{ data.agent_fleet|length }} agents registered. Tier 1 (the scouts) is now fed by <strong>Cowork</strong> through the ingest endpoints; the rest run locally on the warehouse. Each row shows real last-run activity plus how fresh its underlying data is (&ldquo;data as of&rdquo;), which thaws shop by shop as Cowork feeds new dated observations.
         {% if data.cowork_last_run %}Cowork last fed data: {{ data.cowork_last_run.strftime('%b %d, %I:%M %p') if data.cowork_last_run.strftime else data.cowork_last_run }}.{% elif data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
       </div>
       {% if data.cowork_feed %}
@@ -2533,7 +2581,7 @@ body {
           <span class="dot {% if agent.run_count %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
           <span class="agent-name">{{ agent.display }}{% if agent.source == 'cowork' %} <span style="font-family: var(--font-mono); font-size: 8px; color: var(--teal); letter-spacing: 0.5px;">COWORK</span>{% endif %}</span>
           <span class="agent-status" style="{% if agent.run_count %}color: #0E9F6E; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(17,17,17,0.04);{% endif %}">
-            {% if agent.last_run %}{% if agent.source == 'cowork' %}FED {% else %}RAN {% endif %}{{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
+            {% if agent.last_run %}{% if agent.source == 'cowork' %}FED {% else %}RAN {% endif %}{{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}{% if agent.data_as_of %} &middot; data as of {{ agent.data_as_of.strftime('%b %d') if agent.data_as_of.strftime else agent.data_as_of }}{% endif %}
           </span>
         </div>
         {% endfor %}
@@ -2795,7 +2843,7 @@ body {
             "weekly-intel-cycle": "All automated data collectors and the alert system",
             "rnd-project-setup": "Your R&D project tracker and business data",
             "warehouse-query-guide": "Your full business database (all tables)",
-            "agent-orchestrator": "All 15 automated agents",
+            "agent-orchestrator": "All 18 automated agents",
             "expansion-readiness-check": "Your advisory board criteria and live business data",
             "site-selection-analysis": "Market research data and demand estimates"
           } %}

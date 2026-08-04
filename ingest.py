@@ -25,6 +25,7 @@ produce a failure status (500 only when nothing at all was written).
 
 import os
 import hmac
+import threading
 import functools
 from datetime import datetime, timezone
 
@@ -32,12 +33,14 @@ from flask import Blueprint, request, jsonify
 
 # Reuse the existing warehouse write paths — do NOT re-implement inserts for
 # competitors/moves. These are the canonical writers.
-from warehouse.quick_add import load_full_profile      # (profile: dict) -> competitor_id
-from warehouse.intel import add_move                    # canonical competitor_moves writer
-from warehouse.competitors import get_competitor, add_competitor
+from warehouse.intel import add_move, add_product, add_financial, add_social
+from warehouse.competitors import get_competitor, add_competitor, update_competitor
 from warehouse.db import get_connection                 # accessor confirmed against db.py
 
 INGEST_TOKEN = os.environ.get("INGEST_TOKEN")  # set on Railway
+# When true (default), a successful ingest wakes the Tier 2-4 processing chain
+# so new data is normalized/scored immediately instead of waiting for the cron.
+_AUTO_PROCESS = os.environ.get("INGEST_AUTO_PROCESS", "1") != "0"
 ingest_bp = Blueprint("ingest", __name__)
 
 
@@ -138,6 +141,101 @@ def _record_move(move):
     )
 
 
+# Master-record columns we let a re-ingest fill (never overwrite existing values).
+_MASTER_FIELDS = {
+    "industry", "website", "hq_location", "zip_code", "neighborhood",
+    "ownership_type", "primary_clientele", "founded_year", "employee_count",
+    "annual_revenue", "business_model", "notes",
+}
+
+
+def _ingest_profile(profile):
+    """Upsert one competitor and APPEND its observations. Returns competitor_id.
+
+    Existing shop (matched by exact name): reuse its competitor_id, fill only
+    empty master fields, and append the time-series rows. New shop: create it,
+    then attach the nested rows. Baseline (e.g. Jun 12) history is preserved —
+    products/financials/moves/social are append-only tables, so new dated rows
+    stack on top rather than overwriting.
+    """
+    profile = dict(profile)  # copy — we pop nested keys off it
+    products = profile.pop("products", []) or []
+    financials = profile.pop("financials", []) or []
+    moves = profile.pop("moves", []) or []
+    social = profile.pop("social", []) or []
+    name = profile.get("company_name")
+    if not name:
+        raise ValueError("profile requires 'company_name'")
+
+    existing = get_competitor(name)
+    # get_competitor is a fuzzy ILIKE match — only treat it as the SAME shop
+    # when the names actually match, else we'd merge two different competitors.
+    if existing and str(existing.get("company_name", "")).strip().lower() != name.strip().lower():
+        existing = None
+
+    master = {k: v for k, v in profile.items()
+              if k in _MASTER_FIELDS and v is not None}
+    if existing:
+        cid = existing["competitor_id"]
+        # Enrich-only: fill master fields that are currently empty; never
+        # overwrite an existing baseline value.
+        gaps = {k: v for k, v in master.items() if not existing.get(k)}
+        if gaps:
+            update_competitor(cid, **gaps)
+    else:
+        cid = add_competitor(name, **master)
+
+    for p in products:
+        add_product(cid, **p)
+    for f in financials:
+        add_financial(cid, **f)
+    for m in moves:
+        add_move(cid, **m)
+    for s in social:
+        add_social(cid, **s)
+    return cid
+
+
+# ── Downstream processing chain ────────────────────────────────────────
+# New data landing via ingest must wake Tiers 2-4 (Normalizer → … → Scorecard
+# → alerts) rather than waiting for the nightly cron. Runs are coalesced and
+# async so the ingest response returns fast and concurrent POSTs don't stack.
+_chain_lock = threading.Lock()
+_chain_rerun = threading.Event()
+
+
+def _run_processing_chain():
+    from agents.runner import run_tier
+    while True:
+        _chain_rerun.clear()
+        for tier in ("tier2", "tier3", "tier4"):
+            try:
+                run_tier(tier)
+            except Exception:
+                pass  # individual agents log their own failures to agent_runs
+        if not _chain_rerun.is_set():
+            break
+
+
+def trigger_processing_chain():
+    """Wake Tiers 2-4 to process freshly-ingested data. Returns True if it
+    started a run, False if disabled or folded into an in-flight run."""
+    if not _AUTO_PROCESS:
+        return False
+    if not _chain_lock.acquire(blocking=False):
+        _chain_rerun.set()  # a chain is already running — ask it to loop again
+        return False
+
+    def _worker():
+        try:
+            _run_processing_chain()
+        finally:
+            _chain_lock.release()
+
+    threading.Thread(target=_worker, daemon=True, name="ingest-chain").start()
+    return True
+
+
 @ingest_bp.route("/ingest/moat-map", methods=["POST"])
 @_require_token
 def ingest_moat_map():
@@ -151,8 +249,7 @@ def ingest_moat_map():
     written, ids, errors = 0, [], []
     for profile in profiles:
         try:
-            # copy so load_full_profile's pop() can't mutate the caller's dict
-            ids.append(load_full_profile(dict(profile)))
+            ids.append(_ingest_profile(profile))
             written += 1
         except Exception as e:
             errors.append({"company_name": (profile or {}).get("company_name"),
@@ -167,9 +264,13 @@ def ingest_moat_map():
     except Exception as e:
         errors.append({"agent_runs_log": str(e)})
 
+    # New data landed → wake the Tier 2-4 chain to process it now.
+    triggered = trigger_processing_chain() if written else False
+
     http = 200 if status in ("ok", "partial") else 500
     return jsonify({"ok": status != "failed", "status": status,
                     "written": written, "competitor_ids": ids,
+                    "processing_triggered": triggered,
                     "errors": errors}), http
 
 
@@ -209,7 +310,11 @@ def ingest_tripwire():
     except Exception as e:
         errors.append({"agent_runs_log": str(e)})
 
+    # New data landed → wake the Tier 2-4 chain to process it now.
+    triggered = trigger_processing_chain() if (written or alerts_written) else False
+
     http = 200 if status in ("ok", "partial") else 500
     return jsonify({"ok": status != "failed", "status": status,
                     "moves_written": written, "alerts_written": alerts_written,
+                    "processing_triggered": triggered,
                     "errors": errors}), http
