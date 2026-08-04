@@ -1,11 +1,16 @@
 """CORPORATE HQ — 24/7 Scheduler
 
-Fires Managed Agent sessions on the correct cadence.
-Runs inside the Flask app via APScheduler (or standalone).
+Runs the warehouse agent tiers on the correct cadence via APScheduler
+(inside the Flask app, or standalone).
+
+Tier-1 data now arrives from Cowork through the /ingest endpoints — the
+managed-agent web-search path the scouts used is retired (out of budget), so
+there is no local Tier-1 cron. Tiers 2-4 and the digest run the registered
+agents directly via agents.runner (no managed-agent sessions).
 
 SCHEDULE:
-  Tier 1 (Scout)       → 6am, 12pm, 6pm daily
-  Tier 2 (Process)     → 30 min after each Tier 1 run
+  Tier 1 (Scout)       → Cowork via /ingest endpoints (no local cron)
+  Tier 2 (Process)     → 10:30pm nightly
   Tier 3 (Analytics)   → 11pm nightly
   Tier 4 (Alerts)      → Every 4 hours (alerts only, digest removed)
   Weekly Snapshotter   → Sunday 11:30pm
@@ -28,7 +33,9 @@ import os
 import sys
 import logging
 import datetime
-from managed_agent import launch_session, _load_agent_id
+# NOTE: managed_agent (launch_session/_load_agent_id) is intentionally NOT
+# imported here anymore — its web-search sessions are retired. Tiers run
+# directly through agents.runner instead.
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,44 +48,39 @@ log = logging.getLogger("corporate_hq_scheduler")
 # ── SCHEDULED JOB FUNCTIONS ────────────────────────────────────────────
 
 def run_tier1():
-    log.info("▶ TIER 1 — Scout cycle starting")
-    from agents.runner import run_tier
-    results = run_tier("tier1")
-    completed = sum(1 for v in results.values() if v == "completed")
-    total = len(results)
-    log.info(f"  ✓ Tier 1 complete: {completed}/{total} scouts finished")
-    _schedule_tier2_followup()
-    return results
+    # Tier 1 (the scouts) delegated to managed-agent web-search sessions, which
+    # are retired. Cowork now feeds Tier-1 data directly through the /ingest
+    # endpoints, so there is no local Tier-1 job to run here.
+    log.info("▶ TIER 1 — fed by Cowork via /ingest endpoints "
+             "(local scout trigger retired)")
+    return {}
 
 
 def run_tier2():
     log.info("▶ TIER 2 — Processing cycle starting")
-    session_id = launch_session("tier2")
-    if session_id:
-        log.info(f"  ✓ Tier 2 session launched: {session_id}")
-    else:
-        log.warning("  ✗ Tier 2 session failed to launch")
-    return session_id
+    from agents.runner import run_tier
+    results = run_tier("tier2")
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Tier 2 complete: {completed}/{len(results)} agents finished")
+    return results
 
 
 def run_tier3():
     log.info("▶ TIER 3 — Analytics cycle starting")
-    session_id = launch_session("tier3")
-    if session_id:
-        log.info(f"  ✓ Tier 3 session launched: {session_id}")
-    else:
-        log.warning("  ✗ Tier 3 session failed to launch")
-    return session_id
+    from agents.runner import run_tier
+    results = run_tier("tier3")
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Tier 3 complete: {completed}/{len(results)} agents finished")
+    return results
 
 
 def run_tier4():
     log.info("▶ TIER 4 — Alert cycle starting")
-    session_id = launch_session("tier4")
-    if session_id:
-        log.info(f"  ✓ Tier 4 session launched: {session_id}")
-    else:
-        log.warning("  ✗ Tier 4 session failed to launch")
-    return session_id
+    from agents.runner import run_tier
+    results = run_tier("tier4")
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Tier 4 complete: {completed}/{len(results)} agents finished")
+    return results
 
 
 def run_weekly_snapshotter():
@@ -110,23 +112,11 @@ def run_market_pulse():
 
 def run_weekly_digest():
     log.info("▶ WEEKLY DIGEST — Generating Sunday briefing")
-    session_id = launch_session("digest")
-    if session_id:
-        log.info(f"  ✓ Digest session launched: {session_id}")
-    else:
-        log.warning("  ✗ Digest session failed to launch")
-    return session_id
-
-
-def _schedule_tier2_followup():
-    import threading
-    def _delayed_tier2():
-        import time
-        log.info("  ⏱ Waiting 30 min for Tier 2 followup...")
-        time.sleep(30 * 60)
-        run_tier2()
-    t = threading.Thread(target=_delayed_tier2, daemon=True)
-    t.start()
+    from agents.runner import run_agents
+    results = run_agents(["weekly_digest"])
+    completed = sum(1 for v in results.values() if v == "completed")
+    log.info(f"  ✓ Digest complete: {completed}/{len(results)}")
+    return results
 
 
 # ── SCHEDULER INIT ─────────────────────────────────────────────────────
@@ -139,29 +129,16 @@ def init_scheduler(app=None):
         log.error("APScheduler not installed. Run: pip install apscheduler")
         return None
 
-    agent_id = _load_agent_id()
-    if not agent_id:
-        log.warning("No Managed Agent ID found. Create agent first:")
-        log.warning("  python managed_agent.py create")
-        log.warning("Scheduler starting anyway — sessions will fail until agent is created.")
-
     scheduler = BackgroundScheduler(timezone="America/New_York")
 
-    # Tier 1: 6am, 12pm, 6pm daily
+    # Tier 1 is fed by Cowork via the /ingest endpoints — no local scout cron.
+    # (The managed-agent web-search path the scouts used is retired.)
+
+    # Tier 2: 10:30pm nightly — process the day's Cowork-fed data before analytics
     scheduler.add_job(
-        run_tier1, CronTrigger(hour=6, minute=0),
-        id="tier1_morning", name="Tier 1 — Morning Scout",
-        replace_existing=True, misfire_grace_time=300,
-    )
-    scheduler.add_job(
-        run_tier1, CronTrigger(hour=12, minute=0),
-        id="tier1_midday", name="Tier 1 — Midday Scout",
-        replace_existing=True, misfire_grace_time=300,
-    )
-    scheduler.add_job(
-        run_tier1, CronTrigger(hour=18, minute=0),
-        id="tier1_evening", name="Tier 1 — Evening Scout",
-        replace_existing=True, misfire_grace_time=300,
+        run_tier2, CronTrigger(hour=22, minute=30),
+        id="tier2_nightly", name="Tier 2 — Nightly Processing",
+        replace_existing=True, misfire_grace_time=600,
     )
 
     # Tier 3: 11pm nightly
@@ -210,11 +187,11 @@ def init_scheduler(app=None):
 
     log.info("━" * 60)
     log.info("  CORPORATE HQ SCHEDULER — ACTIVE")
-    log.info(f"  Agent ID: {agent_id or 'NOT SET — run managed_agent.py create'}")
+    log.info("  Tier-1 data source: Cowork via /ingest endpoints")
     log.info("━" * 60)
     log.info("  Schedule:")
-    log.info("    Tier 1 (Scout)       → 6am, 12pm, 6pm daily ET")
-    log.info("    Tier 2 (Process)     → 30 min after each Tier 1")
+    log.info("    Tier 1 (Scout)       → Cowork via /ingest (no local cron)")
+    log.info("    Tier 2 (Process)     → 10:30pm nightly ET")
     log.info("    Tier 3 (Analytics)   → 11pm nightly ET")
     log.info("    Tier 4 (Alerts)      → Every 4 hours ET (alerts only)")
     log.info("    Weekly Snapshotter   → Sunday 11:30pm ET")

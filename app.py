@@ -25,6 +25,10 @@ from managed_agent import (
 app = Flask(__name__)
 _scheduler = None
 
+# Cowork -> Corporate HQ ingestion endpoints (write-only, bearer-auth)
+from ingest import ingest_bp
+app.register_blueprint(ingest_bp)
+
 # Auto-initialize DB + seed data if empty (needed for Railway/fresh deploys)
 def _ensure_db():
     init_schema()
@@ -390,26 +394,56 @@ def get_dashboard_data():
         ORDER BY started_at DESC LIMIT 8
     """)
 
-    # Agent fleet — real run history per registered agent, from agent_runs
+    # Agent fleet — real run history per registered agent, from agent_runs.
+    # 18 agents are registered in agents/runner.py. Tier 1 (the 5 scouts) no
+    # longer runs locally: the managed-agent web-search path is retired, and
+    # Cowork now feeds Tier-1 data through the /ingest endpoints, logged under
+    # 'moat-map' and 'tripwire'. So the scouts' Tier-1 activity is read from
+    # those Cowork streams rather than their own (never-written) run rows.
+    TIER1_SCOUTS = {"pricing_scout", "review_harvester", "social_listener",
+                    "shop_watcher", "platform_scout"}
+    COWORK_STREAMS = [("moat-map", "Cowork · Moat Map"),
+                      ("tripwire", "Cowork · Tripwire")]
     fleet_registry = [
         ("pricing_scout", "PricingScout"), ("review_harvester", "ReviewHarvester"),
         ("social_listener", "SocialListener"), ("shop_watcher", "ShopWatcher"),
         ("platform_scout", "PlatformScout"), ("normalizer", "Normalizer"),
         ("barber_enricher", "BarberEnricher"), ("delta_spotter", "DeltaSpotter"),
         ("platform_analyzer", "PlatformAnalyzer"), ("scorecard", "Scorecard"),
-        ("skill_runner", "SkillRunner"), ("price_war_alert", "PriceWarAlert"),
-        ("reputation_radar", "ReputationRadar"), ("talent_tracker", "TalentTracker"),
-        ("weekly_digest", "WeeklyDigest"),
+        ("skill_runner", "SkillRunner"), ("weekly_snapshotter", "WeeklySnapshotter"),
+        ("pricing_strategist", "PricingStrategist"), ("market_pulse", "MarketPulse"),
+        ("price_war_alert", "PriceWarAlert"), ("reputation_radar", "ReputationRadar"),
+        ("talent_tracker", "TalentTracker"), ("weekly_digest", "WeeklyDigest"),
     ]
     run_stats = {r["agent_name"]: r for r in _q("""
         SELECT agent_name, MAX(started_at) AS last_run, COUNT(*) AS run_count
         FROM agent_runs GROUP BY agent_name
     """)}
-    d["agent_fleet"] = [{
+
+    # Roll the two Cowork ingest streams up into one Tier-1 feed signal.
+    cowork_rows = [run_stats[n] for n, _ in COWORK_STREAMS if n in run_stats]
+    cowork_last_runs = [r["last_run"] for r in cowork_rows if r["last_run"]]
+    cowork_last = max(cowork_last_runs) if cowork_last_runs else None
+    cowork_count = sum(r["run_count"] for r in cowork_rows)
+    d["cowork_feed"] = [{
         "display": display,
         "last_run": run_stats.get(name, {}).get("last_run"),
         "run_count": run_stats.get(name, {}).get("run_count", 0),
-    } for name, display in fleet_registry]
+    } for name, display in COWORK_STREAMS]
+    d["cowork_last_run"] = cowork_last
+
+    fleet = []
+    for name, display in fleet_registry:
+        if name in TIER1_SCOUTS:
+            # Tier-1 data now arrives via Cowork; surface that real activity
+            # instead of the scout's own (permanently empty) run history.
+            fleet.append({"display": display, "last_run": cowork_last,
+                          "run_count": cowork_count, "source": "cowork"})
+        else:
+            st = run_stats.get(name, {})
+            fleet.append({"display": display, "last_run": st.get("last_run"),
+                          "run_count": st.get("run_count", 0), "source": "local"})
+    d["agent_fleet"] = fleet
     d["agents_executed"] = sum(1 for a in d["agent_fleet"] if a["run_count"])
     fleet_last_runs = [a["last_run"] for a in d["agent_fleet"] if a["last_run"]]
     d["last_agent_cycle"] = max(fleet_last_runs) if fleet_last_runs else None
@@ -1246,53 +1280,7 @@ body {
   .status-dot { font-size: 10px; padding: 6px 10px; }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MIGRATION BANNER — persistent until Booksy is done
-   ═══════════════════════════════════════════════════════════════ */
-.migration-banner {
-  background: linear-gradient(90deg, rgba(230,57,70,0.1), rgba(46,196,182,0.08));
-  border: 1px solid rgba(230,57,70,0.2);
-  border-radius: var(--radius-sm);
-  padding: 12px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.migration-banner .label {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--red-soft);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-.migration-banner .bar-track {
-  flex: 1;
-  height: 4px;
-  background: rgba(17,17,17,0.06);
-  border-radius: 4px;
-  overflow: hidden;
-  max-width: 400px;
-}
-.migration-banner .bar-fill {
-  height: 100%;
-  width: 35%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--red), var(--teal));
-  animation: shimmer 2s ease-in-out infinite;
-}
-@keyframes shimmer {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-.migration-banner .pct {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--red-soft);
-}
+/* Migration banner removed — Booksy/Emporium OS is roadmap, not live status. */
 
 /* ═══════════════════════════════════════════════════════════════
    BENTO GRID
@@ -1357,10 +1345,6 @@ body {
   /* Section headers */
   .section-header { padding: 24px 0 10px; gap: 8px; }
   .section-title { font-size: 10px; letter-spacing: 2px; }
-
-  /* Migration banner */
-  .migration-banner { flex-direction: column; padding: 10px 14px; gap: 8px; text-align: center; }
-  .migration-banner .label { font-size: 10px; }
 
   /* Price rows */
   .price-row { gap: 6px; }
@@ -2170,14 +2154,9 @@ body {
 <!-- DASHBOARD SHELL -->
 <div class="shell">
 
-  <!-- ═══ BOOKSY MIGRATION BANNER ═══ -->
-  {% if data.shop.migrating_from %}
-  <div class="migration-banner">
-    <div class="label">Moving Clients from Booksy to Our System</div>
-    <div class="bar-track"><div class="bar-fill"></div></div>
-    <div class="pct">In Progress</div>
-  </div>
-  {% endif %}
+  <!-- Booksy migration banner removed — shelved feature, not a tracked initiative.
+       The planned booking platform is documented in the "Our Booking System" card
+       (Tech Stack tab), which is the roadmap home for Emporium OS. -->
 
   <!-- ═══ TAB: OVERVIEW ═══ -->
   <div class="tab-panel active" id="tab-overview">
@@ -2189,10 +2168,8 @@ body {
 
     <!-- STATUS STRIP (moved from topbar) -->
     <div class="topbar-status" style="grid-column: span 12; flex-wrap: wrap;">
-      <div class="status-dot">
-        <span class="dot dot-yellow"></span>
-        Booking System: Planned
-      </div>
+      <!-- Static "planned booking system" status dot removed — it had no data
+           binding. The planned platform lives in the Tech Stack roadmap card. -->
       <div class="status-dot">
         <span class="dot {% if data.shop.migrating_from %}dot-yellow{% else %}dot-green{% endif %}"></span>
         {% if data.shop.migrating_from %}Moving Clients from Booksy{% else %}BOOKSY CLEAR{% endif %}
@@ -2541,16 +2518,22 @@ body {
         <span class="card-badge badge-teal">{{ data.agents_executed }} of {{ data.agent_fleet|length }} Have Run</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        {{ data.agent_fleet|length }} agents registered. They run on the scheduler (scouts 3x daily, analytics nightly, alerts every 4hrs) or on demand &mdash; not continuously. Status below is actual run history from the agent log.
-        {% if data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
+        {{ data.agent_fleet|length }} agents registered. Tier 1 (the scouts) is now fed by <strong>Cowork</strong> through the ingest endpoints; the rest run locally on the warehouse. Each row shows real last-run activity from the agent log &mdash; &ldquo;NO RUNS YET&rdquo; until it has actually run.
+        {% if data.cowork_last_run %}Cowork last fed data: {{ data.cowork_last_run.strftime('%b %d, %I:%M %p') if data.cowork_last_run.strftime else data.cowork_last_run }}.{% elif data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
       </div>
+      {% if data.cowork_feed %}
+      <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.3px;">
+        TIER-1 SOURCE &middot; COWORK:
+        {% for s in data.cowork_feed %}{{ s.display.replace('Cowork · ', '') }} ({% if s.last_run %}{{ s.last_run.strftime('%b %d') if s.last_run.strftime else s.last_run }}{% else %}awaiting first feed{% endif %}){% if not loop.last %} &middot; {% endif %}{% endfor %}
+      </div>
+      {% endif %}
       <div class="agent-grid">
         {% for agent in data.agent_fleet %}
         <div class="agent-cell">
           <span class="dot {% if agent.run_count %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
-          <span class="agent-name">{{ agent.display }}</span>
+          <span class="agent-name">{{ agent.display }}{% if agent.source == 'cowork' %} <span style="font-family: var(--font-mono); font-size: 8px; color: var(--teal); letter-spacing: 0.5px;">COWORK</span>{% endif %}</span>
           <span class="agent-status" style="{% if agent.run_count %}color: #0E9F6E; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(17,17,17,0.04);{% endif %}">
-            {% if agent.last_run %}RAN {{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
+            {% if agent.last_run %}{% if agent.source == 'cowork' %}FED {% else %}RAN {% endif %}{{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
           </span>
         </div>
         {% endfor %}
@@ -2847,14 +2830,13 @@ body {
         <div class="footer-head">Intelligence</div>
         <span class="foot-item">{{ data.competitor_count }} Competitors Tracked</span>
         <span class="foot-item">{{ data.agent_fleet|length }} Automated Agents</span>
-        <span class="foot-item">Scouts Run 3x Daily</span>
+        <span class="foot-item">{{ data.agents_executed }} Agents Have Run</span>
         <span class="foot-item">Weekly Digest Sundays</span>
       </div>
       <div class="footer-col">
         <div class="footer-head">Systems</div>
         <span class="foot-item">Intelligence Warehouse</span>
         <span class="foot-item">HQ Assistant</span>
-        <span class="foot-item">Booking System (Planned)</span>
         <span class="foot-item">Alert Log</span>
       </div>
       <div class="footer-col">
