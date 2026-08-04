@@ -61,17 +61,96 @@ def add_move(competitor_id, move_date, move_type, description,
 
 # --- Social Presence ---
 
-def add_social(competitor_id, platform, followers, engagement_rate=None):
+def add_social(competitor_id, platform, followers=None, engagement_rate=None,
+               snapshot_date=None):
+    """Append a social snapshot. snapshot_date is the observation date (defaults
+    to today) so freshness reflects when the data was seen, not insert time."""
     con = get_connection()
     sid = con.execute("SELECT nextval('seq_social')").fetchone()[0]
     con.execute("""
         INSERT INTO competitor_social (id, competitor_id, platform,
-            followers, engagement_rate)
-        VALUES (?, ?, ?, ?, ?)
-    """, [sid, competitor_id, platform, followers, engagement_rate])
+            followers, engagement_rate, snapshot_date)
+        VALUES (?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE))
+    """, [sid, competitor_id, platform, followers, engagement_rate, snapshot_date])
     con.close()
     print(f"Added social: {platform} for competitor {competitor_id}")
     return sid
+
+
+# --- Review snapshots ---
+
+def add_review(competitor_id, platform, rating=None, review_text=None,
+               reviewer_name=None, review_date=None, sentiment_score=None,
+               keywords=None):
+    """Append one review snapshot. review_date is the observation date."""
+    if isinstance(keywords, (list, tuple)):
+        keywords = ", ".join(str(k) for k in keywords)
+    con = get_connection()
+    rid = con.execute("SELECT nextval('seq_review')").fetchone()[0]
+    con.execute("""
+        INSERT INTO review_snapshots (id, competitor_id, platform, rating,
+            review_text, reviewer_name, review_date, sentiment_score, keywords)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [rid, competitor_id, platform, rating, review_text, reviewer_name,
+          review_date, sentiment_score, keywords])
+    con.close()
+    print(f"Added review snapshot for competitor {competitor_id}")
+    return rid
+
+
+# --- Booking-platform presence ---
+
+def add_platform_profile(competitor_id, platform, profile_url=None, rating=None,
+                         review_count=None, is_verified=None,
+                         accepts_online_booking=None, payment_methods=None,
+                         profile_completeness=None, last_active=None,
+                         notes=None, collected_at=None):
+    """Append a competitor's booking-platform profile. collected_at is the
+    observation timestamp (defaults to now)."""
+    con = get_connection()
+    pid = con.execute("SELECT nextval('seq_platform_profile')").fetchone()[0]
+    con.execute("""
+        INSERT INTO platform_profiles (id, competitor_id, platform, profile_url,
+            rating, review_count, is_verified, accepts_online_booking,
+            payment_methods, profile_completeness, last_active, notes, collected_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+    """, [pid, competitor_id, platform, profile_url, rating, review_count,
+          is_verified, accepts_online_booking, payment_methods,
+          profile_completeness, last_active, notes, collected_at])
+    con.close()
+    print(f"Added platform profile ({platform}) for competitor {competitor_id}")
+    return pid
+
+
+def add_platform_solo(barber_name, platform, profile_url=None, zip_code=None,
+                      neighborhood=None, rating=None, review_count=None,
+                      years_experience=None, specialties=None, price_range=None,
+                      fade_price=None, haircut_price=None, beard_price=None,
+                      combo_price=None, accepts_walkins=None, chair_rental=None,
+                      instagram_handle=None, ownership_type=None,
+                      primary_clientele=None, status="Active", notes=None,
+                      collected_at=None):
+    """Append an independent (solo) barber found on a booking platform. These
+    are not tied to a competitor_id."""
+    if isinstance(specialties, (list, tuple)):
+        specialties = ", ".join(str(s) for s in specialties)
+    con = get_connection()
+    bid = con.execute("SELECT nextval('seq_platform_solo')").fetchone()[0]
+    con.execute("""
+        INSERT INTO platform_solo_barbers (id, barber_name, platform, profile_url,
+            zip_code, neighborhood, rating, review_count, years_experience,
+            specialties, price_range, fade_price, haircut_price, beard_price,
+            combo_price, accepts_walkins, chair_rental, instagram_handle,
+            ownership_type, primary_clientele, status, notes, collected_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+    """, [bid, barber_name, platform, profile_url, zip_code, neighborhood, rating,
+          review_count, years_experience, specialties, price_range, fade_price,
+          haircut_price, beard_price, combo_price, accepts_walkins, chair_rental,
+          instagram_handle, ownership_type, primary_clientele, status, notes,
+          collected_at])
+    con.close()
+    print(f"Added solo barber: {barber_name} ({platform})")
+    return bid
 
 
 # --- Cross-competitor Queries ---

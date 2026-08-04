@@ -31,10 +31,10 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify
 
-# Reuse the existing warehouse write paths — do NOT re-implement inserts for
-# competitors/moves. These are the canonical writers.
-from warehouse.intel import add_move, add_product, add_financial, add_social
+# Reuse the existing warehouse write paths — do NOT re-implement inserts.
+from warehouse.intel import add_move                     # used by tripwire's _record_move
 from warehouse.competitors import get_competitor, add_competitor, update_competitor
+from warehouse.quick_add import attach_profile_records, MASTER_FIELDS
 from warehouse.db import get_connection                 # accessor confirmed against db.py
 
 INGEST_TOKEN = os.environ.get("INGEST_TOKEN")  # set on Railway
@@ -141,28 +141,19 @@ def _record_move(move):
     )
 
 
-# Master-record columns we let a re-ingest fill (never overwrite existing values).
-_MASTER_FIELDS = {
-    "industry", "website", "hq_location", "zip_code", "neighborhood",
-    "ownership_type", "primary_clientele", "founded_year", "employee_count",
-    "annual_revenue", "business_model", "notes",
-}
-
-
 def _ingest_profile(profile):
-    """Upsert one competitor and APPEND its observations. Returns competitor_id.
+    """Upsert one competitor and APPEND its full enriched observation set.
 
     Existing shop (matched by exact name): reuse its competitor_id, fill only
-    empty master fields, and append the time-series rows. New shop: create it,
-    then attach the nested rows. Baseline (e.g. Jun 12) history is preserved —
-    products/financials/moves/social are append-only tables, so new dated rows
-    stack on top rather than overwriting.
+    empty master fields (never overwrite baseline), and update status if it
+    changed. New shop: create it. Either way, every nested sub-structure the
+    payload carries — products, financials, moves, social, reviews,
+    platform_profiles, platform_solo_barbers — is appended by its own
+    observation date via the shared attach_profile_records() dispatcher.
+    Baseline history is preserved (all these tables are append-only). Returns
+    the competitor_id.
     """
-    profile = dict(profile)  # copy — we pop nested keys off it
-    products = profile.pop("products", []) or []
-    financials = profile.pop("financials", []) or []
-    moves = profile.pop("moves", []) or []
-    social = profile.pop("social", []) or []
+    profile = dict(profile)
     name = profile.get("company_name")
     if not name:
         raise ValueError("profile requires 'company_name'")
@@ -174,7 +165,8 @@ def _ingest_profile(profile):
         existing = None
 
     master = {k: v for k, v in profile.items()
-              if k in _MASTER_FIELDS and v is not None}
+              if k in MASTER_FIELDS and v is not None}
+    status = profile.get("status")
     if existing:
         cid = existing["competitor_id"]
         # Enrich-only: fill master fields that are currently empty; never
@@ -182,17 +174,14 @@ def _ingest_profile(profile):
         gaps = {k: v for k, v in master.items() if not existing.get(k)}
         if gaps:
             update_competitor(cid, **gaps)
+        if status and status != existing.get("status"):
+            update_competitor(cid, status=status)
     else:
         cid = add_competitor(name, **master)
+        if status:
+            update_competitor(cid, status=status)
 
-    for p in products:
-        add_product(cid, **p)
-    for f in financials:
-        add_financial(cid, **f)
-    for m in moves:
-        add_move(cid, **m)
-    for s in social:
-        add_social(cid, **s)
+    attach_profile_records(cid, profile)
     return cid
 
 
@@ -200,6 +189,13 @@ def _ingest_profile(profile):
 # New data landing via ingest must wake Tiers 2-4 (Normalizer → … → Scorecard
 # → alerts) rather than waiting for the nightly cron. Runs are coalesced and
 # async so the ingest response returns fast and concurrent POSTs don't stack.
+#
+# ⚠️ REVISIT BEFORE SCALING (multiple shops / multiple gunicorn workers):
+# this lock only coalesces WITHIN a single process. With >1 web worker (or the
+# APScheduler firing at the same time), several chains can write to the single
+# DuckDB file at once and hit its single-writer lock. Fine at current
+# single-shop volume; before scaling, move to a shared "dirty flag" processed by
+# ONE worker/scheduler, a job queue, or a DB that supports concurrent writers.
 _chain_lock = threading.Lock()
 _chain_rerun = threading.Event()
 
