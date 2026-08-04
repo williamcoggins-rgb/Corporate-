@@ -394,26 +394,56 @@ def get_dashboard_data():
         ORDER BY started_at DESC LIMIT 8
     """)
 
-    # Agent fleet — real run history per registered agent, from agent_runs
+    # Agent fleet — real run history per registered agent, from agent_runs.
+    # 18 agents are registered in agents/runner.py. Tier 1 (the 5 scouts) no
+    # longer runs locally: the managed-agent web-search path is retired, and
+    # Cowork now feeds Tier-1 data through the /ingest endpoints, logged under
+    # 'moat-map' and 'tripwire'. So the scouts' Tier-1 activity is read from
+    # those Cowork streams rather than their own (never-written) run rows.
+    TIER1_SCOUTS = {"pricing_scout", "review_harvester", "social_listener",
+                    "shop_watcher", "platform_scout"}
+    COWORK_STREAMS = [("moat-map", "Cowork · Moat Map"),
+                      ("tripwire", "Cowork · Tripwire")]
     fleet_registry = [
         ("pricing_scout", "PricingScout"), ("review_harvester", "ReviewHarvester"),
         ("social_listener", "SocialListener"), ("shop_watcher", "ShopWatcher"),
         ("platform_scout", "PlatformScout"), ("normalizer", "Normalizer"),
         ("barber_enricher", "BarberEnricher"), ("delta_spotter", "DeltaSpotter"),
         ("platform_analyzer", "PlatformAnalyzer"), ("scorecard", "Scorecard"),
-        ("skill_runner", "SkillRunner"), ("price_war_alert", "PriceWarAlert"),
-        ("reputation_radar", "ReputationRadar"), ("talent_tracker", "TalentTracker"),
-        ("weekly_digest", "WeeklyDigest"),
+        ("skill_runner", "SkillRunner"), ("weekly_snapshotter", "WeeklySnapshotter"),
+        ("pricing_strategist", "PricingStrategist"), ("market_pulse", "MarketPulse"),
+        ("price_war_alert", "PriceWarAlert"), ("reputation_radar", "ReputationRadar"),
+        ("talent_tracker", "TalentTracker"), ("weekly_digest", "WeeklyDigest"),
     ]
     run_stats = {r["agent_name"]: r for r in _q("""
         SELECT agent_name, MAX(started_at) AS last_run, COUNT(*) AS run_count
         FROM agent_runs GROUP BY agent_name
     """)}
-    d["agent_fleet"] = [{
+
+    # Roll the two Cowork ingest streams up into one Tier-1 feed signal.
+    cowork_rows = [run_stats[n] for n, _ in COWORK_STREAMS if n in run_stats]
+    cowork_last_runs = [r["last_run"] for r in cowork_rows if r["last_run"]]
+    cowork_last = max(cowork_last_runs) if cowork_last_runs else None
+    cowork_count = sum(r["run_count"] for r in cowork_rows)
+    d["cowork_feed"] = [{
         "display": display,
         "last_run": run_stats.get(name, {}).get("last_run"),
         "run_count": run_stats.get(name, {}).get("run_count", 0),
-    } for name, display in fleet_registry]
+    } for name, display in COWORK_STREAMS]
+    d["cowork_last_run"] = cowork_last
+
+    fleet = []
+    for name, display in fleet_registry:
+        if name in TIER1_SCOUTS:
+            # Tier-1 data now arrives via Cowork; surface that real activity
+            # instead of the scout's own (permanently empty) run history.
+            fleet.append({"display": display, "last_run": cowork_last,
+                          "run_count": cowork_count, "source": "cowork"})
+        else:
+            st = run_stats.get(name, {})
+            fleet.append({"display": display, "last_run": st.get("last_run"),
+                          "run_count": st.get("run_count", 0), "source": "local"})
+    d["agent_fleet"] = fleet
     d["agents_executed"] = sum(1 for a in d["agent_fleet"] if a["run_count"])
     fleet_last_runs = [a["last_run"] for a in d["agent_fleet"] if a["last_run"]]
     d["last_agent_cycle"] = max(fleet_last_runs) if fleet_last_runs else None
@@ -2138,8 +2168,8 @@ body {
 
     <!-- STATUS STRIP (moved from topbar) -->
     <div class="topbar-status" style="grid-column: span 12; flex-wrap: wrap;">
-      <!-- "Booking System: Planned" status dot removed — static placeholder with no
-           data binding. The planned platform lives in the Tech Stack roadmap card. -->
+      <!-- Static "planned booking system" status dot removed — it had no data
+           binding. The planned platform lives in the Tech Stack roadmap card. -->
       <div class="status-dot">
         <span class="dot {% if data.shop.migrating_from %}dot-yellow{% else %}dot-green{% endif %}"></span>
         {% if data.shop.migrating_from %}Moving Clients from Booksy{% else %}BOOKSY CLEAR{% endif %}
@@ -2488,16 +2518,22 @@ body {
         <span class="card-badge badge-teal">{{ data.agents_executed }} of {{ data.agent_fleet|length }} Have Run</span>
       </div>
       <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4;">
-        {{ data.agent_fleet|length }} agents registered. Each row below shows that agent's real last run, read from the agent log &mdash; &ldquo;NO RUNS YET&rdquo; until it has actually executed.
-        {% if data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
+        {{ data.agent_fleet|length }} agents registered. Tier 1 (the scouts) is now fed by <strong>Cowork</strong> through the ingest endpoints; the rest run locally on the warehouse. Each row shows real last-run activity from the agent log &mdash; &ldquo;NO RUNS YET&rdquo; until it has actually run.
+        {% if data.cowork_last_run %}Cowork last fed data: {{ data.cowork_last_run.strftime('%b %d, %I:%M %p') if data.cowork_last_run.strftime else data.cowork_last_run }}.{% elif data.last_agent_cycle %}Last cycle: {{ data.last_agent_cycle.strftime('%b %d, %I:%M %p') if data.last_agent_cycle.strftime else data.last_agent_cycle }}.{% endif %}
       </div>
+      {% if data.cowork_feed %}
+      <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.3px;">
+        TIER-1 SOURCE &middot; COWORK:
+        {% for s in data.cowork_feed %}{{ s.display.replace('Cowork · ', '') }} ({% if s.last_run %}{{ s.last_run.strftime('%b %d') if s.last_run.strftime else s.last_run }}{% else %}awaiting first feed{% endif %}){% if not loop.last %} &middot; {% endif %}{% endfor %}
+      </div>
+      {% endif %}
       <div class="agent-grid">
         {% for agent in data.agent_fleet %}
         <div class="agent-cell">
           <span class="dot {% if agent.run_count %}dot-green{% else %}dot-yellow{% endif %}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;"></span>
-          <span class="agent-name">{{ agent.display }}</span>
+          <span class="agent-name">{{ agent.display }}{% if agent.source == 'cowork' %} <span style="font-family: var(--font-mono); font-size: 8px; color: var(--teal); letter-spacing: 0.5px;">COWORK</span>{% endif %}</span>
           <span class="agent-status" style="{% if agent.run_count %}color: #0E9F6E; background: rgba(52,211,153,0.1);{% else %}color: var(--text-muted); background: rgba(17,17,17,0.04);{% endif %}">
-            {% if agent.last_run %}RAN {{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
+            {% if agent.last_run %}{% if agent.source == 'cowork' %}FED {% else %}RAN {% endif %}{{ agent.last_run.strftime('%b %d') if agent.last_run.strftime else agent.last_run }}{% else %}NO RUNS YET{% endif %}
           </span>
         </div>
         {% endfor %}
